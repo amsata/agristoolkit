@@ -332,7 +332,20 @@ tempfile opendata_dst
 	}
 	
 	use `opendata_dst', clear
-	
+
+	/* Complete the list of combinations between dimensions and variables */
+	preserve
+	if(`n_geovars'==0) _gen_all_dimcomb_dataset `varlist' Variable
+	else _gen_all_dimcomb_dataset geoVar `varlist' Variable
+	tempfile dimcomb
+	save `dimcomb', replace
+	restore
+
+	if(`n_geovars'==0) merge m:1 `varlist' Variable using `dimcomb', nogen
+	else merge m:1 geoVar `varlist' Variable using `dimcomb', nogen
+
+	replace n_Obs=0 if missing(n_Obs)
+	replace N_subPop=0 if missing(N_subPop)	
 	
 		***some adjustment for ratio
 		
@@ -421,7 +434,8 @@ tempfile opendata_dst
 			qui replace UL_confInt=UL_confInt*100 if Unit=="%"
 			qui replace standError=standError*100 if Unit=="%"
 
-			qui gen Value_str=string(Value, "%15.2f")
+			qui gen Value_str=cond(missing(Value),"",string(Value, "%15.5f"))
+
 			
 			if(`n_integer'>0){
 				local size_integer: list sizeof integer

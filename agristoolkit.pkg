@@ -3,10 +3,13 @@ d 'AGRISTOOLKIT': A toolkit for agricultural surveys and census
 d 
 d processing, analysisng and disseminating agricultural survey and census data
 d 
-d Distribution-Date:   20260512
+d Distribution-Date:   20260824
 d License: Creative Commons Attribution 4.0
 d 
+F _check_excel_path.ado
 F _excel_cell_shift.ado
+F _excel_cell_shift.ado
+F _gen_all_dimcomb_dataset.ado
 F add_name.ado
 F consistencyCheck.ado
 F erase_after_hash.ado

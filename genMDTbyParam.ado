@@ -204,7 +204,7 @@ program define genMDTbyParam
 		rename ll LL_confInt
 		rename ul UL_confInt
 		rename b Value
-		format Value %15.2f
+		format Value %15.5f
 		order `final_varlist' Variable Parameter  Value 
 
 	} // quietly
