@@ -24,6 +24,7 @@ F mat_to_ds.ado
 F odp_tab.ado
 F odp_tab2.ado
 F odp_tab3.ado
+F putexcel_describe.ado
 F setup_anonymization.ado
 F setup_anonymization.sthlp
 F svyEstimate.ado
