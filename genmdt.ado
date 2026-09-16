@@ -2,6 +2,19 @@
 
 cap program drop genmdt
 program define genmdt
+    // Commit the MDT on success; restore the survey data on validation/error.
+    preserve
+    capture noisily _genmdt_impl `0'
+    local rc=_rc
+    if `rc' {
+        restore
+        exit `rc'
+    }
+    restore, not
+end
+
+capture program drop _genmdt_impl
+program define _genmdt_impl
 		
 	syntax [varlist(default=none)] [if], [ MARGINlabels(string asis) mean(string asis) total(string asis) ratio(string asis) median(string asis) HIERGEOvars(string asis) INTeger(string asis) ///
 	GEOMARGINlabel(string) CONDitionals(string asis) subpop(string asis) UNITs(string asis) INDICATORname(string asis) setcluster(integer 0)]
@@ -100,12 +113,22 @@ if(`n_geovars'>0) {
 }
 
 	
-	qui expand_varlist "`mean'"
-	local mean `r(expanded)'
-	
-	qui expand_varlist "`total'"
-	local total `r(expanded)'
-	
+    local category_count=0
+    foreach statistic in mean total {
+        quietly expand_varlist "``statistic''"
+        local requested `r(expanded)'
+        quietly expand_labelled_var "`requested'"
+        local `statistic' `r(expanded)'
+        local ng=r(n_generated)
+        if `ng' {
+            forvalues j=1/`ng' {
+                local ++category_count
+                local category_var`category_count' `r(variable`j')'
+                local category_label`category_count' `"`r(label`j')'"'
+            }
+        }
+    }
+
 	qui expand_varlist "`median'"
 	local median `r(expanded)'
 	
@@ -119,40 +142,88 @@ if(`n_geovars'>0) {
 	}
 	
 	local all_variable "`mean' `total' `ratio' `median'"
-	
-		if (`n_indicatorname'!=0) {
-			foreach ind of local indicatorname {
-				local pos=strpos("`ind'", "@")
-				if `pos'>0 {
-					local varname=substr("`ind'", 1, strpos("`ind'", "@") - 1)
-					*verifier si la variable est dans la list des variable a estimer
-					local pos_var: list posof "`varname'" in all_variable
-					if `pos'==1 {
-						display as error "error in '{cmd:`ind'}': Please put the variable name before {cmd:@}" _newline 
-						display as error "The indicator name should be specified as followed: {cmd: 'variableName@label of the indicator'} "
-						exit 480
-					}
-					else if `pos_var'==0 {
-						extract_before_colon "`all_variable'"
-						local res_before_colon "`r(extracted)'"
-					    local pos_var: list posof "`varname'" in res_before_colon
+    // Resolve wildcard units only against requested indicators, never other data.
+    // Expand in place so existing last-assignment-wins semantics are retained.
+    local resolved_units
+    foreach specification of local units {
+        local at=strpos(`"`specification'"',"@")
+        local pattern=substr(`"`specification'"',1,`at'-1)
+        if `at'>1 & strpos(`"`pattern'"',"*") {
+            local unit_text=substr(`"`specification'"',`at'+1,.)
+            local matches=0
+            foreach candidate of local all_variable {
+                local id `candidate'
+                local colon=strpos(`"`id'"',":")
+                if `colon' local id=substr(`"`id'"',1,`colon'-1)
+                local id=subinstr(`"`id'"',"(","",.)
+                if strmatch(`"`id'"',`"`pattern'"') {
+                    local resolved_units `"`resolved_units' `"`id'@`unit_text'"'"'
+                    local ++matches
+                }
+            }
+            if !`matches' {
+                di as error "units(): wildcard `pattern' matches no selected indicators"
+                exit 480
+            }
+        }
+        else local resolved_units `"`resolved_units' `"`specification'"'"'
+    }
+    local units `"`resolved_units'"'
 
-						if `pos_var'==0 {
-						display as error "Eerror in '{cmd:`ind'}' in the option {cmd: indicatorname}: {cmd: `varname'}  is not a valid variable name specified in {cmd: mean}, {cmd: median},{cmd: total} or {cmd: ratio}." _newline 
-							display as error "Please make sure that the variable {cmd: `varname'} exists in  {cmd: mean}, {cmd: median},{cmd: total} or {cmd: ratio}" _newline 
-						display as error "In case the variable {cmd: `varname'} exists in  {cmd: mean}, {cmd: median},{cmd: total} or {cmd: ratio}, please make sure the indicator label, in the {cmd: indicatorname} option, is be specified as followed: {cmd: 'variableName@title of the indicator'} "
-						exit 480
-						}
-					}
-				}
-				else {		
-					display as error "Eerror in '{cmd:`ind'}': '{cmd: @}' is missing in the indicator name specification" _newline 
-					display as error "The indicator name should be specified as followed: {cmd: 'variableName@title of the indicator'} "
-					exit 480
-				}
-			}			
-		}
-
+    // Validate naming metadata against final estimation IDs after expansion.
+    local naming_ids `mean' `total' `median'
+    local naming_ratio=ustrregexra(`"`ratio'"',"\s*:\s*",":")
+    local naming_ratio=ustrregexra(`"`naming_ratio'"',"\s*/\s*","/")
+    local naming_ratio=subinstr(`"`naming_ratio'"',"(","",.)
+    local naming_ratio=subinstr(`"`naming_ratio'"',")","",.)
+    quietly extract_before_colon "`naming_ratio'"
+    local naming_ids `naming_ids' `r(extracted)'
+    local naming_ids : list uniq naming_ids
+    local names_count=0
+    local rename_sources
+    local rename_targets
+    foreach specification of local indicatorname {
+        quietly _genmdt_name_parse, spec(`"`specification'"')
+        local src "`r(source)'"
+        local dst "`r(target)'"
+        local ++names_count
+        local name_source`names_count' "`src'"
+        local name_label`names_count' `"`r(label)'"'
+        local selected : list posof "`src'" in naming_ids
+        if !`selected' {
+            di as error "indicatorname(): `src' is not a selected indicator ID"
+            exit 480
+        }
+        if "`dst'"!="" {
+            local previous : list posof "`src'" in rename_sources
+            if `previous' {
+                local old_target : word `previous' of `rename_targets'
+                if "`old_target'"!="`dst'" {
+                    di as error "Conflicting destination IDs for `src'"
+                    exit 198
+                }
+            }
+            else {
+                local rename_sources `rename_sources' `src'
+                local rename_targets `rename_targets' `dst'
+            }
+        }
+    }
+    local rename_count : list sizeof rename_sources
+    if `rename_count' {
+        local final_ids
+        foreach src of local naming_ids {
+            local dst "`src'"
+            local position : list posof "`src'" in rename_sources
+            if `position' local dst : word `position' of `rename_targets'
+            local collision : list posof "`dst'" in final_ids
+            if `collision' {
+                di as error "Final indicator ID collision: `dst'"
+                exit 198
+            }
+            local final_ids `final_ids' `dst'
+        }
+    }
 
 		if (`n_unit'!=0) {
 		foreach ind of local units {
@@ -357,15 +428,10 @@ tempfile opendata_dst
 		
 		if (`n_indicatorname'!=0) {
 			gen IndicatorName=""
-			foreach ind of local indicatorname {
-				local pos=strpos("`ind'", "@")
-				local varname=substr("`ind'", 1, strpos("`ind'", "@") - 1)
-				qui replace IndicatorName="`ind'" if Variable=="`varname'"
-				qui replace IndicatorName = substr(IndicatorName, strpos(IndicatorName, "@") + 1, .)
-				qui replace IndicatorName = subinstr(IndicatorName, "***", " ", .)
-				qui replace IndicatorName = subinstr(IndicatorName, "&&&", "'", .)
-			}
-			
+            forvalues j=1/`names_count' {
+                quietly replace IndicatorName=`"`name_label`j''"' if Variable=="`name_source`j''"
+            }
+
 			unab all_vars: *
 			// Step 2: Create a new order, moving "res" before "ger"
 			local neworder ""
@@ -380,6 +446,16 @@ tempfile opendata_dst
 		 order `neworder'
 
 		}
+
+        // Explicit indicatorname() assignments take precedence over category labels.
+        if `category_count' {
+            capture confirm variable IndicatorName
+            if _rc generate strL IndicatorName=""
+            forvalues j=1/`category_count' {
+                quietly replace IndicatorName=`"`category_label`j''"' if Variable=="`category_var`j''" & IndicatorName==""
+            }
+            order IndicatorName, before(Value)
+        }
 
 		if (`n_unit'!=0) {
 			gen Unit=""
@@ -457,6 +533,19 @@ tempfile opendata_dst
 	******************LABEL INDICATOR AND UNITS IF PROVIDED*********************
 	****************************************************************************
 	
+    // Rename only after units, percent conversion and integer formatting.
+    // Compare original IDs so swaps/chains never cascade through replacements.
+    if `rename_count' {
+        tempvar original_id
+        clonevar `original_id'=Variable
+        forvalues j=1/`rename_count' {
+            local src : word `j' of `rename_sources'
+            local dst : word `j' of `rename_targets'
+            quietly replace Variable="`dst'" if `original_id'=="`src'"
+        }
+        drop `original_id'
+    }
+
 end
 
 program ParseSubpopOption, sclass

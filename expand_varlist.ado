@@ -35,3 +35,5 @@ program define expand_varlist, rclass
 
     return local expanded "`expanded_list'"
 end
+
+* Keep the program's closing end line terminated for older Stata loaders.

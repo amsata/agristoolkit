@@ -21,3 +21,5 @@ program define extract_macro_elements, rclass
 
     return local subset `"`collect'"'
 end
+
+* Keep the program's closing end line terminated for older Stata loaders.

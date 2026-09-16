@@ -1,6 +1,6 @@
 capture program drop _gen_all_dimcomb_dataset
 program define _gen_all_dimcomb_dataset
-    version 15
+    version 13
     syntax varlist(min=1)
 
     tempfile labelsdo

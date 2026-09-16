@@ -103,7 +103,7 @@ program define consistencyCheck
 	
 	cap which parallel
 	if _rc {
-		di as error "Error:The parallel package is required. Please install it by running: ssc install elabel"
+		di as error "Error:The parallel package is required. Please install it by running: net install parallel, from(https://raw.github.com/gvegayon/parallel/stable/) replace"
 		exit 1
 	}
 		
