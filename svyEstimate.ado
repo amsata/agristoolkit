@@ -89,19 +89,46 @@ program define svyEstimate
 			else svy,  subpop(`subpop_clean') over(`varlist'): `parameter' `variable'
 			
 			if (`c(stata_version)'<16 & "`alldim'"!="yes") {
-				foreach dimname of local varlist {
-					local lbls : value label `dimname'
-					elabel copy `lbls' lb_`dimname'
-				}
-				local nameslist `"`e(over_namelist)'"'
-				local overlbls `"`e(over_labels)'"'
+                local nameslist `"`e(over_namelist)'"'
 			}
 		
 			qui return list
 			matrix define T= r(table)'	
 			qui ereturn list
 			matrix define n_subpop= e(_N)'	
-			matrix define N_subpop= e(_N_subp)'	
+			matrix define N_subpop= e(_N_subp)'
+
+            if (`c(stata_version)'<16 & "`alldim'"!="yes") {
+                // Use the same native grouping routine as svy, on its actual
+                // estimation sample. No dimension codes are inferred from labels.
+                tempvar legacy_sample legacy_group legacy_key
+                tempfile legacy_lookup
+                quietly generate byte `legacy_sample'=e(sample)
+                quietly _svy_subpop `legacy_sample' `legacy_group', over(`varlist') subpop(`subpop_clean')
+                local rebuilt_names `"`r(over_namelist)'"'
+                if `"`rebuilt_names'"'!=`"`nameslist'"' {
+                    di as error "Cannot reconstruct the survey over() groups exactly"
+                    exit 459
+                }
+                local legacy_n : list sizeof nameslist
+                preserve
+                quietly keep if `legacy_sample' & `legacy_group'>0 & !missing(`legacy_group')
+                keep `legacy_group' `varlist'
+                quietly duplicates drop
+                sort `legacy_group'
+                assert _N==`legacy_n'
+                assert `legacy_group'==_n
+                generate str244 `legacy_key'=""
+                forvalues legacy_i=1/`legacy_n' {
+                    local legacy_name : word `legacy_i' of `nameslist'
+                    quietly replace `legacy_key'="`legacy_name'" in `legacy_i'
+                }
+                isid `legacy_key'
+                drop `legacy_group'
+                quietly save `legacy_lookup'
+                restore
+            }
+
 
 			mat_to_ds T "yes"		   
 			tempfile res_estimation
@@ -133,26 +160,11 @@ program define svyEstimate
 			merge 1:1 rownames using `dataset_N_subpop', nogen
 			
 			if (`c(stata_version)'<16 & "`alldim'"!="yes") {
-				tempvar ov_label
-				gen `ov_label'=""
-				local i=1
-				foreach v of local overlbls {
-					qui replace `ov_label'=`"`v'"' if strpos(rownames, "`:word `i' of `nameslist''") > 0
-					local ++i
-				}
+                // Matrix stripe suffixes are exact keys, including _subpop_10.
+                generate str244 `legacy_key'=substr(rownames,strpos(rownames,":")+1,.)
+                merge m:1 `legacy_key' using `legacy_lookup', keep(master match) assert(match) nogen
+                drop `legacy_key'
 
-				foreach vv of local varlist {
-					gen `vv'=.
-					qui elabel list lb_`vv'
-					local valeur="`r(values)'"
-					local text=`"`r(labels)'"'
-					local i=1
-					foreach val of local valeur {
-						qui replace `vv'=`val' if strpos(`ov_label', "`:word `i' of `text''") > 0
-						local ++i
-					}
-				}
-				
 				replace rownames = regexr(rownames , "\:.*", "")
 				replace rownames=rownames+"@"
 				local j=1
