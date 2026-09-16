@@ -4,8 +4,10 @@ program define add_name, rclass
 syntax anything, [start]
 
 local anything `anything'
-local newtext = subinstr("`anything'", "'", "&&&", .)
-local newtext = subinstr("`newtext'", " ", "***", .)
+// Structural validation only: generated IDs need not exist yet.
+_genmdt_name_parse, spec(`"`anything'"')
+local newtext = subinstr(`"`anything'"', "'", "&&&", .)
+local newtext = subinstr(`"`newtext'"', " ", "***", .)
 
 if ("`start'"!="") {
     local combined `" `"`newtext'"' "'
@@ -13,9 +15,9 @@ if ("`start'"!="") {
 }
 else {
 
-local gobmac "$indicatornames"
+local gobmac : copy global indicatornames
 
 local combined = `"`gobmac' `"`newtext'"'"'
 }
-    global indicatornames "`combined'"
+    global indicatornames `"`combined'"'
 end
