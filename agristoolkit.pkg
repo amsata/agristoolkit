@@ -11,9 +11,13 @@ F _excel_cell_shift.ado
 F _excel_cell_shift.ado
 F _gen_all_dimcomb_dataset.ado
 F add_name.ado
+F add_name.sthlp
+F _genmdt_name_parse.ado
 F consistencyCheck.ado
 F erase_after_hash.ado
 F expand_varlist.ado
+F expand_labelled_var.ado
+F expand_labelled_var.sthlp
 F extract_before_colon.ado
 F extract_macro_elements.ado
 F genMDTbyParam.ado
@@ -30,6 +34,9 @@ F setup_anonymization.sthlp
 F svyEstimate.ado
 F svyParallel.ado
 F svyParallelGeo.ado
+F _tab_from_mdt_excel.ado
+F _tab_from_mdt_over.ado
+F _tab_from_mdt_over2.ado
 F tab_from_mdt.ado
 F tab_from_mdt.sthlp
 F to_string.ado
