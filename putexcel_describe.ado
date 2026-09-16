@@ -1,6 +1,6 @@
 capture program drop putexcel_describe
 program define putexcel_describe, rclass
-    version 16
+    version 14.1
 
     tempfile pxlog
 

@@ -1,391 +1,440 @@
 {smcl}
-{* *! version 1.3.22  01apr2019}{...}
+{* *! tab_from_mdt help updated 10sep2026}{...}
+{vieweralsosee "genmdt" "help genmdt"}{...}
+{vieweralsosee "putexcel" "help putexcel"}{...}
+{viewerjumpto "Syntax" "tab_from_mdt##syntax"}{...}
+{viewerjumpto "Description and data" "tab_from_mdt##description"}{...}
+{viewerjumpto "Layouts" "tab_from_mdt##layouts"}{...}
+{viewerjumpto "Options" "tab_from_mdt##options"}{...}
+{viewerjumpto "Examples" "tab_from_mdt##examples"}{...}
+{viewerjumpto "Stored results" "tab_from_mdt##results"}{...}
+{viewerjumpto "Requirements and limitations" "tab_from_mdt##requirements"}{...}
 
-{p2colset 1 14 16 2}{...}
-{p2col:{bf:[SVY] svy} {hline 2}}The survey prefix command
-{p_end}
-{p2col:}({mansection SVY svy:View complete PDF manual entry}){p_end}
+{title:Title}
+
+{p2colset 5 23 25 2}{...}
+{p2col:{bf:tab_from_mdt}}Create formatted Excel tables from a multidimensional table{p_end}
 {p2colreset}{...}
-
 
 {marker syntax}{...}
 {title:Syntax}
 
-{phang2}
-{cmd:tab_from_mdt} [{help tab_from_mdt##varlist:{it:varlist}}] [{cmd:,}
-           {help tab_from_mdt##vars_options:{it: variables_options}}
-		   {help tab_from_mdt##dimension_options:{it: dimension_options}}
-		   {help tab_from_mdt##formating_options:{it: formating_options}}
-		   {help tab_from_mdt##saving_options:{it: saving_options}}] {cmd::} {it:command}
+{p 8 16 2}
+{cmd:tab_from_mdt} {it:rowvars} [{cmd:if} {it:exp}],
+{cmd:indicator(}{it:IDs}{cmd:)}
+{cmd:outfile(}{it:filename} [{cmd:,} {it:sheet} [{cmd:,} {it:row} [{cmd:,} {it:column}]]]{cmd:)}
+[{it:options}]
 
+{pstd}
+{it:rowvars} lists the variables identifying table rows. Supply indicator IDs as
+space-separated string values, without a separate comma between IDs.
+Only {cmd:if} is supported; {cmd:in}, weights, and a colon estimation command are
+not part of this syntax. Options follow the comma after the row variables.
 
-{marker varlist}{...}
-{synopthdr:varlist}
+{synoptset 29 tabbed}{...}
+{synopthdr:options}
 {synoptline}
-{synopt :{opt varlist}{cmd:(}[{varlist}]{cmd:)}}dimension variable that will appear in the first column{p_end}
-
-{marker vars_options}{...}
-{synopthdr:vars_options}
+{syntab:Required}
+{synopt:{cmd:indicator(}{it:IDs}{cmd:)}}indicator IDs to display{p_end}
+{synopt:{cmd:outfile(}{it:filename ...}{cmd:)}}Excel workbook and optional placement{p_end}
+{syntab:Layout}
+{synopt:{cmd:over(}{it:varlist}{cmd:)}}one, two, or three column dimensions{p_end}
+{synopt:{opt byi:ndicator}}one table per indicator, stacked vertically{p_end}
+{synopt:{opt omit:absentcomb}}omit absent pairs/triples; requires two or three over variables{p_end}
+{synopt:{cmd:by(}{it:varlist}{cmd:)}}legacy category layout and indicator stacking{p_end}
+{syntab:Input variables}
+{synopt:{cmd:indvar(}{it:varname}{cmd:)}}string ID variable; default {cmd:Variable}{p_end}
+{synopt:{cmd:indicatorname(}{it:varname}{cmd:)}}string indicator-label variable; default {cmd:IndicatorName}{p_end}
+{synopt:{cmd:value(}{it:varname}{cmd:)}}string or numeric values; default {cmd:Value_str}{p_end}
+{syntab:Content and formatting}
+{synopt:{cmd:tabtitle(}{it:string}{cmd:)}}table title; supports an indicator-title template with {cmd:byindicator}{p_end}
+{synopt:{cmd:header(}{it:string}{cmd:)}}additional heading{p_end}
+{synopt:{cmd:labeldim(}{it:strings}{cmd:)}}one quoted heading per row variable{p_end}
+{synopt:{cmd:rowtotal(}{it:string}{cmd:)}}add a total column with this heading; meaning depends on layout{p_end}
+{synopt:{cmd:valid(}{it:string}{cmd:)}}population-column heading where supported{p_end}
+{synopt:{cmd:subpopvar(}{it:varname}{cmd:)}}population variable; default {cmd:N_subPop} where supported{p_end}
+{synopt:{opt dec:imal(string)}}display decimal separator; default period{p_end}
+{synopt:{cmd:source(}{it:string}{cmd:)}}source note below each table{p_end}
+{synopt:{opt highlight}}emphasize the last displayed data row{p_end}
+{syntab:Workbook management}
+{synopt:{opt replace}}replace the workbook when starting output{p_end}
+{synopt:{opt on:memory}}leave the workbook open for subsequent writes{p_end}
 {synoptline}
-
-{synopt :indvar([{help varname}])}Name of the variable in the multidimensional table that contain the indicors' ID ("Variable in the default value"){p_end}
-{synopt :indicator([{help namelist}])}Contains the list of indicator ID (values inside the variable specified in indvar which values will be displayed in the table){p_end}
-{synopt :indicatorname([{help varname}])}Variable in the multidimensional table that contains the labels (or name) of indicators in the indvar variable("IndicatorName is the default value"){p_end}
-{synopt :valvar([{help varname}])}Variable that contains the values of the different indicators in the multidimensional talbe ("Value" is the default value){p_end}
-
-
-{marker dimension_options}{...}
-{synopthdr:dimension_options}
-{synoptline}
-
-{synopt :{opt over}{cmd:(}[{varname}]{cmd:)}}Enable crosstabulation with the specified dimension variable.{p_end}
-
-{marker formating_options}{...}
-{synopthdr:formating_options}
-{synoptline}
-{synopt :{opt tabtitle}{cmd:(}[{varlist}]{cmd:)}}Title of the table that will be displayed in the excel output{p_end}
-{synopt :{opt decimal}{cmd:(}[{varlist}]{cmd:)}}Decimal separator ("." is the default value){p_end}
-{synopt :{opt rowtotal}{cmd:(}[{varlist}]{cmd:)}}Enable adding a total column in the table{p_end}
-{synopt :{opt valid}{cmd:(}[{varlist}]{cmd:)}}Allow to diplay the number of weighted obserbations which is the reference population of the indicator{p_end}
-
-
-{marker saving_options}{...}
-{synopthdr:saving_options}
-{synoptline}
-{synopt :{opt outfile}{cmd:(}[{varlist}]{cmd:)}}Contain the path of the Excel file where the table will be exported{p_end}
-{synopt :{opt replace}}If specified, will replace the output Excel file{p_end}
-
-{synoptline}
-{p 4 6 2}
-{cmd:genmdt} requires that the survey design variables be identified using
-{helpb svyset}.
-{p_end}
-{p 4 6 2}
-{it:command} defines the estimation command to be executed.  The {helpb by}
-prefix cannot be part of {it:command}.{p_end}
-{p 4 6 2}
-{cmd:mi estimate} may be used with {cmd:svy linearized} if the estimation 
-command allows {cmd:mi estimate}; it may not be used with {cmd:svy bootstrap},
-{cmd:svy brr},
-{cmd:svy jackknife}, or {cmd:svy sdr}.{p_end}
-{p 4 6 2}
-{opt noheader}, {opt nolegend}, {opt noadjust}, {opt noisily}, 
-{opt trace}, and {opt coeflegend} are not shown in the dialog boxes for
-estimation commands.
-{p_end}
-{p 4 6 2}
-Warning:  Using {cmd:if} or {cmd:in} restrictions will often not produce correct
-variance estimates for subpopulations.  To compute estimates
-for subpopulations, use the {cmd:subpop()} option.
-{p_end}
-{p 4 6 2}
-See {helpb svy postestimation:[SVY] svy postestimation} for features available
-after estimation.
-{p_end}
-{p2colreset}{...}
-
 
 {marker description}{...}
-{title:Description}
+{title:Description and input data}
 
 {pstd}
-{cmd:genmdt} uses the advantages of the command {helpb svy} to compile multidimensional statistical table containing indicator estimated by {helpb mean},  {helpb total}, or {helpb ratio} (see {manhelp svy_estimation SVY:svy estimation})  for complex survey data by adjusting the results of a command for survey settings identified by {helpb svyset}. Exeptionally, the {helpb median} is estimate using by {helpb collapse}.
-{marker linksweb}{...}
-{title:Links to external documentation}
+{cmd:tab_from_mdt} formats estimates already stored in the dataset in memory,
+usually the MDT produced by {help genmdt}. It writes Excel tables using
+{help putexcel}. It does not estimate survey statistics, recompute variances,
+create population margins, or require {cmd:svyset} for table formatting.
+An {cmd:if} condition selects existing MDT observations for display.
 
-        {browse "https://amsata.github.io/agristoolkit/":Quick start}
-
-        {browse "https://amsata.github.io/agristoolkit/":Remarks and examples}
-
-        {browse "https://amsata.github.io/agristoolkit/":Methods and formulas}
+{marker varlist}{...}
+{pstd}
+Each observation should identify one indicator for one complete combination of
+row and column dimensions. Keep or filter any additional MDT dimensions so they
+do not create duplicate keys. For example, if age group remains in the MDT but
+is neither a row variable nor an over variable, select one age group first.
 
 {pstd}
-The above sections are not included in this help file.
+With the default input names, the MDT contains row/column dimension variables,
+{cmd:Variable} (string indicator ID), {cmd:IndicatorName} (string label), and
+{cmd:Value_str} (display value). {cmd:Value_str} may contain numeric text or
+flags such as {cmd:[c]}. To use the underlying numeric estimate, specify
+{cmd:value(Value)}. Renamed input variables can be selected with the corresponding
+options. The option is {cmd:value()}, not {cmd:valvar()}.
 
+{pstd}
+If {cmd:IndicatorName} is unavailable and {cmd:indicatorname()} is omitted, the
+indicator ID is used as its label. With two/three over variables or
+{cmd:byindicator}, each selected indicator must have one nonmissing label and
+nonmissing, unique row/column keys. Missing selected indicators cause an error.
+
+{marker layouts}{...}
+{title:Layouts}
+
+{pstd}
+Without {cmd:byindicator} or legacy {cmd:by()}:
+
+{phang}No {cmd:over()}: row dimensions at the left and indicators in columns.{p_end}
+{phang}One over variable, one indicator: categories of that variable in columns.{p_end}
+{phang}One over variable, multiple indicators: category blocks placed side by side,
+with indicators within each block. This is the retained legacy layout.{p_end}
+{phang}Two or three over variables: one table with nested category headers,
+followed by the selected indicator headings.{p_end}
+
+{marker over2}{...}
+{pstd}
+For {cmd:over(rural sex agegroup)}, the outer header is rural, the next is sex,
+and the innermost category header is agegroup. The final header row contains
+indicators. Two over variables therefore give three header rows; three give
+four. Even a single indicator retains these header levels.
+
+{pstd}
+In the two-/three-dimensional writer, numeric codes or string sort order determine
+category order, value labels supply numeric category text, and {cmd:indicator()}
+determines indicator order. Row variables must be distinct from over variables.
+Unused value-label definitions do not create categories.
+
+{marker byindicator}{...}
+{pstd}
+{cmd:byindicator} creates one table for each selected indicator, in the supplied
+order, below the previous table on the same worksheet. It works with zero, one,
+two, or three over variables. With one indicator it creates one table.
+Each table uses that indicator's observed row and category sets after {cmd:if};
+rows, widths, and category sets can differ between tables.
+
+{pstd}
+{cmd:by(varlist)} retains the older layout: categories are columns and multiple
+indicators are written as separate tables. For new scripts, use
+{cmd:byindicator over(varname)} for the single-column-dimension counterpart.
+Do not combine {cmd:by()} with {cmd:byindicator}. Combining {cmd:by()} with two or
+three over variables is rejected. Avoid combining {cmd:by()} and {cmd:over()}
+in new scripts; use one layout specification.
 
 {marker options}{...}
 {title:Options}
 
-{dlgtab:Disaggregation dimensions}
+{marker vars_options}{...}
+{dlgtab:Selecting values}
 
 {phang}
-{opt subpop}{cmd:(}{it:subpop}{cmd:)} specifies that
-estimates be computed for the single subpopulation identified by
-{it:subpop}, which is [{varname}] [{it:{help if}}]
-
-{pmore}
-Thus the subpopulation is defined by the observations for which
-{it:varname}!=0 that also meet the {cmd:if} conditions.  Typically,
-{it:varname}=1 defines the subpopulation, and {it:varname}=0 indicates
-observations not belonging to the subpopulation.  For observations whose
-subpopulation status is uncertain, {it:varname} should be set to a missing
-value; such observations are dropped from the estimation sample.
-
-{pmore}
-See {manlink SVY Subpopulation estimation}.
-
-{dlgtab:if/in}
+{cmd:indicator(}{it:IDs}{cmd:)} is required. IDs are values of {cmd:indvar()}, not
+necessarily names of dataset variables. Use distinct IDs, for example
+{cmd:indicator(highbp diabetes)}. With {cmd:byindicator}, each ID produces a table.
 
 {phang}
-{opt subpop}{cmd:(}{it:subpop}{cmd:)} specifies that
-estimates be computed for the single subpopulation identified by
-{it:subpop}, which is
+{cmd:indvar()}, {cmd:indicatorname()}, and {cmd:value()} select the ID, label,
+and value variables described above. Supply one variable for each option.
+For ordinary indicator column headings, the text after {cmd:#} is used when
+present. For separate-indicator table titles, the text before {cmd:#} is used.
+A label without a hash is used in full.
 
-{pmore2}
-[{varname}] [{it:{help if}}]
-
-{pmore}
-Thus the subpopulation is defined by the observations for which
-{it:varname}!=0 that also meet the {cmd:if} conditions.  Typically,
-{it:varname}=1 defines the subpopulation, and {it:varname}=0 indicates
-observations not belonging to the subpopulation.  For observations whose
-subpopulation status is uncertain, {it:varname} should be set to a missing
-value; such observations are dropped from the estimation sample.
-
-{pmore}
-See {manlink SVY Subpopulation estimation}.
-
-
-{dlgtab:Parameters}
+{marker dimension_options}{...}
+{dlgtab:Absent combinations}
 
 {phang}
-{opt dof(#)} specifies the design degrees of freedom, overriding the default
-calculation, df = N_psu - N_strata.
+{cmd:omitabsentcomb} changes only the two-/three-dimensional layout.
+Without it, the table uses the Cartesian product of all categories present in
+each dimension among the selected observations. An entirely unobserved pair or
+triple is displayed with missing cells, {cmd:[:]}.
+
+{pstd}
+With {cmd:omitabsentcomb}, a complete pair or triple is omitted only if there
+are no MDT observations for any selected indicator across all displayed rows,
+after applying {cmd:if}. A combination present in any row remains for all rows;
+row-specific missing cells remain {cmd:[:]}.
+
+{pstd}
+Blank estimates, flags, numeric zeros, and observations with {cmd:n_Obs == 0}
+still count as present. The option does not consult {cmd:n_Obs} or remove existing
+placeholder observations. With {cmd:byindicator}, presence is evaluated separately
+for each indicator table. Header spans and returned placement columns adjust to
+the combinations retained. Without {cmd:over()}, or with only one over variable,
+{cmd:omitabsentcomb} is rejected with error 198.
+
+{marker formating_options}{...}
+{dlgtab:Titles, headings, and notes}
 
 {phang}
-{it:bootstrap_options} are other options that are allowed with bootstrap
-variance estimation specified by {cmd:svy} {cmd:bootstrap} or specified as
-{cmd:svyset} using the {cmd:vce(bootstrap)} option;
-see {manhelpi bootstrap_options SVY}.
+{cmd:tabtitle(}{it:string}{cmd:)} supplies a title. For {cmd:byindicator}, the
+default is the indicator label before the first hash. The literal placeholder
+{cmd:{c -(}title{c )-}} in a supplied title is replaced for each indicator; for
+example, {cmd:tabtitle("Results: {c -(}title{c )-}")}.
+The legacy separate-indicator layout also supports this placeholder.
+It is not expanded for a combined two-/three-dimensional table.
 
 {phang}
-{it:brr_options} are other options that are allowed with BRR
-variance estimation specified by {cmd:svy} {cmd:brr} or specified as
-{cmd:svyset} using the {cmd:vce(brr)} option;
-see {manhelpi brr_options SVY}.
+{cmd:header(}{it:string}{cmd:)} adds another heading. With two/three over variables,
+title and header each occupy one row above the category headers. Legacy layouts
+place headings differently; the one-over, multiple-indicator layout uses category
+labels for its block headings.
 
 {phang}
-{it:jackknife_options} are other options that are allowed with
-jackknife variance estimation specified by {cmd:svy} {cmd:jackknife} or 
-specified as {cmd:svyset} using the {cmd:vce(jackknife)} option; see
-{manhelpi jackknife_options SVY}.
+{cmd:labeldim(}{it:strings}{cmd:)} replaces row-variable headings, for example
+{cmd:labeldim("Region" "District")}. Supply one label for each row variable.
+Category labels still come from dimension values/value labels.
 
 {phang}
-{it:sdr_options} are other options that are allowed with SDR
-variance estimation specified by {cmd:svy} {cmd:sdr} or specified as
-{cmd:svyset} using the {cmd:vce(sdr)} option;
-see {manhelpi sdr_options SVY}.
-
-{dlgtab:Reporting}
-
-{phang}
-{opt level(#)}
-specifies the confidence level, as a percentage, for confidence intervals.
-The default is {cmd:level(95)} or as set by {helpb set level}.
+{cmd:source(}{it:string}{cmd:)} writes a source note. Masked-cell and zero-cell
+percentage notes are also generated. With {cmd:byindicator}, each table has its
+own notes. In the two-/three-dimensional writer these percentages are calculated
+from indicator cells in the displayed grid, including missing cells, and exclude
+population and derived-total columns. Blank/nonnumeric values count as masked.
 
 {phang}
-{opt nocnsreport}; see
-     {helpb estimation options##nocnsreport:[R] Estimation options}.
-
-INCLUDE help displayopts_list
-
-{dlgtab:Others options}
+{cmd:highlight} emphasizes the last displayed data row. It does not identify or
+calculate a national total; select/order the MDT appropriately.
 
 {phang}
-{opt level(#)}
-specifies the confidence level, as a percentage, for confidence intervals.
-The default is {cmd:level(95)} or as set by {helpb set level}.
+{cmd:decimal(}{it:string}{cmd:)} replaces the decimal separator in displayed value
+strings, for example {cmd:decimal(",")}. It is not a request for a number of
+decimal places. In the two-/three-dimensional writer, converted strings may be
+stored as Excel text; calculated totals retain their numeric Excel formatting.
+
+{dlgtab:Totals and population columns}
 
 {phang}
-{opt nocnsreport}; see
-     {helpb estimation options##nocnsreport:[R] Estimation options}.
+{cmd:rowtotal(}{it:string}{cmd:)} adds a total with the supplied heading.
+The meaning follows the selected layout:
 
-INCLUDE help displayopts_list
+{phang2}No over variable: sum indicator columns within each row.{p_end}
+{phang2}One over variable and one indicator (including {cmd:byindicator}):
+sum across category columns.{p_end}
+{phang2}One over variable and multiple indicators, without {cmd:byindicator}:
+sum indicators within each category block.{p_end}
+{phang2}Two/three over variables: sum selected indicators within each complete
+category pair/triple, excluding the population column. Do not sum across category
+levels. With {cmd:byindicator}, each numeric total repeats its one indicator.{p_end}
 
+{pstd}
+For two/three over variables, a nonempty nonnumeric component produces
+{cmd:[-]} in its total. Blank components are omitted; a combination with no
+numeric or flagged components produces {cmd:[:]}, not zero. Legacy writers retain
+their existing missing/flag rules. Select indicators/categories whose sum is meaningful.
+
+{phang}
+{cmd:valid(}{it:string}{cmd:)} requests a population column with this heading.
+{cmd:subpopvar(}{it:varname}{cmd:)} selects its numeric source, normally
+{cmd:N_subPop}. These values are read from the MDT, not computed from row counts.
+
+{pstd}
+With two/three over variables, one population column is written per complete
+category combination. The selected indicators must have equal, nonmissing
+populations within each observed row/category combination; otherwise error 459
+is issued. Population values are rounded to integers. With {cmd:byindicator},
+checks occur within each separate indicator table.
+
+{pstd}
+The legacy no-over writer adds a shared population column only when its population
+consistency check passes. The one-over, multiple-indicator block layout uses that
+writer per block. The legacy one-indicator category writer does not render
+{cmd:valid()} columns, even though it accepts the option; this also applies to
+one-over {cmd:byindicator} tables. Legacy {cmd:by()} does not forward these
+population options. Use the supported two-/three-dimensional layout when a
+population column per category combination is needed.
+
+{marker saving_options}{...}
+{dlgtab:Workbook and placement}
+
+{phang}
+{cmd:outfile()} is required. Its positional arguments are filename, sheet,
+starting row, and starting column, for example
+{cmd:outfile("./report.xlsx", "Results", 4, C)}. Defaults are worksheet
+{cmd:TABLES}, row 1, column A. Specify intervening arguments when supplying a later
+argument. Include a directory component in the filename, for example "./report.xlsx" or an absolute path. Relative paths are relative to Stata's working directory.
+
+{phang}
+{cmd:replace} replaces the workbook, not just a table or worksheet. Without it,
+the selected worksheet is modified at the requested cells. With {cmd:byindicator},
+replacement occurs only for the first table. Writing a narrower table into an
+existing range does not clear unrelated old cells; use a fresh area or workbook.
+
+{phang}
+{cmd:onmemory} keeps the putexcel workbook open for subsequent writes.
+Use {cmd:putexcel close} on Stata versions below 16, or {cmd:putexcel save}
+on Stata 16 or later, to finish. Without {cmd:onmemory}, the command saves
+when it finishes the table or indicator stack.
+
+{pstd}
+{cmd:outfile("no", "Results", 20, A)} reuses the active putexcel worksheet.
+It requires an already configured workbook, normally kept open by
+{cmd:onmemory}. The sheet argument does not switch sheets in this mode.
+Use an explicit filename and sheet to select another worksheet.
 
 {marker examples}{...}
-{title:Example 1}
+{title:Examples}
 
-In this exemple we are going to use the nhanes2f dataset and generate a multidimensional statistical tables containings the following indicators by region, sex and race:
+{pstd}
+The following self-contained example uses a small illustrative MDT, not survey
+estimates. Run it in a writable working directory. It replaces the example
+workbooks named below. With an installed package, the adopath line is unnecessary;
+for this development checkout use:
 
-	1. Average age of the reference population
-	2. Number of people with high blood pressure
-	3. Proportion of people with hight blood pressure
+{phang2}{cmd:. adopath ++ "C:\Users\USER\Documents\GitHub\agrisvyst"}{p_end}
 
-{phang}
-{cmd:. webuse nhanes2f}
-{p_end}
-{phang}
-{cmd:. svyset psuid [pweight=finalwgt], strata(stratid)}
-{p_end}
-{phang}
-{cmd:. genmdt region, mean(age)}
-{p_end}
-{phang}
-{cmd:. genmdt region, marginlabels("region@USA") mean(age) units("age@Years") indicator("age@average age of individuals")}
-{p_end}
+{pstd}Create the example MDT:{p_end}
+{cmd}
+    clear
+    input byte(region rural sex agegroup) str1 Variable double Value
+    1 1 1 1 "a" 10
+    1 1 1 1 "b" 20
+    1 2 1 1 "a" 30
+    1 2 1 1 "b" 40
+    1 2 2 2 "a" 50
+    1 2 2 2 "b" 60
+    2 1 1 1 "a" 15
+    2 1 1 1 "b" 25
+    2 2 1 1 "a" 35
+    2 2 1 1 "b" 45
+    2 2 2 2 "a" 55
+    2 2 2 2 "b" 65
+    end
+    generate str12 Value_str = trim(string(Value))
+    generate str30 IndicatorName = "Measure " + Variable
+    generate double N_subPop = 100 * region
+    label define regions 1 "North" 2 "South"
+    label values region regions
+    label define residence 1 "Rural" 2 "Urban"
+    label values rural residence
+    label define sexes 1 "Female" 2 "Male"
+    label values sex sexes
+    label define ages 1 "Younger" 2 "Older"
+    label values agegroup ages
+{txt}
 
-{title:Example 2}
+{pstd}Simple table without over(): select the other dimensions to ensure unique keys.{p_end}
+{cmd}
+    tab_from_mdt region if rural==1 & sex==1 & agegroup==1, indicator(a b) ///
+        outfile("./example_simple.xlsx") replace
+{txt}
 
-In this exemple we are going to use the nhanes2f dataset and generate a multidimensional statistical tables containings the following indicators by region, sex and race:
+{pstd}One column dimension, with a separate table per indicator:{p_end}
+{cmd}
+    tab_from_mdt region if sex==1 & agegroup==1, indicator(a b) over(rural) ///
+        byindicator outfile("./example_byindicator.xlsx") replace
+{txt}
 
-	1. Average age of the reference population
-	2. Number of people with high blood pressure
-	3. Proportion of people with hight blood pressure
+{pstd}Two nested dimensions, including populations and indicator totals:{p_end}
+{cmd}
+    tab_from_mdt region if agegroup==1, indicator(a b) over(rural sex) ///
+        valid("Population") rowtotal("Total") ///
+        outfile("./example_over2.xlsx") replace
+{txt}
 
-{phang}
-{cmd:. webuse nhanes2f}
-{p_end}
-{phang}
-{cmd:. svyset psuid [pweight=finalwgt], strata(stratid)}
-{p_end}
-{phang}
-{cmd:. genmdt region, mean(age)}
-{p_end}
-{phang}
-{cmd:. genmdt region, marginlabels("region@USA") mean(age) units("age@Years") indicator("age@average age of individuals")}
-{p_end}
+{pstd}Three nested dimensions, first rectangular and then omitting absent triples:{p_end}
+{cmd}
+    tab_from_mdt region, indicator(a b) over(rural sex agegroup) ///
+        outfile("./example_full.xlsx") replace
+    tab_from_mdt region, indicator(a b) over(rural sex agegroup) ///
+        omitabsentcomb outfile("./example_compact.xlsx") replace
+{txt}
 
+{pstd}Separate compact tables with a title template and a source note:{p_end}
+{cmd}
+    tab_from_mdt region, indicator(b a) over(rural sex agegroup) byindicator ///
+        omitabsentcomb tabtitle("Results: {c -(}title{c )-}") ///
+        source("Illustrative data") ///
+        outfile("./example_separate.xlsx", "Results", 3, C) replace
+{txt}
 
-{title:Example 3}
+{pstd}Append using returned row coordinates and an open workbook:{p_end}
+{cmd}
+    tab_from_mdt region, indicator(a) over(rural sex agegroup) ///
+        outfile("./example_append.xlsx") replace onmemory
+    local next = r(tab_end_line)
+    tab_from_mdt region, indicator(b) over(rural sex agegroup) ///
+        outfile("no", "TABLES", `next', A) onmemory
+    if c(stata_version)<16 putexcel close
+    else putexcel save
+{txt}
 
-In this exemple we are going to use the nhanes2f dataset and generate a multidimensional statistical tables containings the following indicators by region, sex and race:
-
-	1. Average age of the reference population
-	2. Number of people with high blood pressure
-	3. Proportion of people with hight blood pressure
-
-{phang}
-{cmd:. webuse nhanes2f}
-{p_end}
-{phang}
-{cmd:. svyset psuid [pweight=finalwgt], strata(stratid)}
-{p_end}
-{phang}
-{cmd:. genmdt region, mean(age)}
-{p_end}
-{phang}
-{cmd:. genmdt region, marginlabels("region@USA") mean(age) units("age@Years") indicator("age@average age of individuals")}
-{p_end}
-
-
-{title:Example 4}
-
-In this exemple we are going to use the nhanes2f dataset and generate a multidimensional statistical tables containings the following indicators by region, sex and race:
-
-	1. Average age of the reference population
-	2. Number of people with high blood pressure
-	3. Proportion of people with hight blood pressure
-
-{phang}
-{cmd:. webuse nhanes2f}
-{p_end}
-{phang}
-{cmd:. svyset psuid [pweight=finalwgt], strata(stratid)}
-{p_end}
-{phang}
-{cmd:. genmdt region, mean(age)}
-{p_end}
-{phang}
-{cmd:. genmdt region, marginlabels("region@USA") mean(age) units("age@Years") indicator("age@average age of individuals")}
-{p_end}
-
+{pstd}
+For survey work, first run {help genmdt} on the survey dataset, then apply
+{cmd:tab_from_mdt} to its output. The package's development baseline examples
+under {cmd:codex/base_line_examples} demonstrate this workflow with NHANES II.
+That local development folder is not required for installed-package use.
 
 {marker results}{...}
 {title:Stored results}
 
-{pstd}
-{cmd:svy} stores the following in {cmd:e()}:
-
-{synoptset 22 tabbed}{...}
-{p2col 5 22 24 2: Scalars}{p_end}
-{synopt:{cmd:e(N)}}number of observations{p_end}
-{synopt:{cmd:e(N_sub)}}subpopulation observations{p_end}
-{synopt:{cmd:e(N_strata)}}number of strata{p_end}
-{synopt:{cmd:e(N_strata_omit)}}number of strata omitted{p_end}
-{synopt:{cmd:e(singleton)}}{cmd:1} if singleton strata, {cmd:0} otherwise{p_end}
-{synopt:{cmd:e(census)}}{cmd:1} if census data, {cmd:0} otherwise{p_end}
-{synopt:{cmd:e(F)}}model F statistic{p_end}
-{synopt:{cmd:e(df_m)}}model degrees of freedom{p_end}
-{synopt:{cmd:e(df_r)}}variance degrees of freedom{p_end}
-{synopt:{cmd:e(N_pop)}}estimate of population size{p_end}
-{synopt:{cmd:e(N_subpop)}}estimate of subpopulation size{p_end}
-{synopt:{cmd:e(N_psu)}}number of sampled PSUs{p_end}
-{synopt:{cmd:e(stages)}}number of sampling stages{p_end}
-{synopt:{cmd:e(k_eq)}}number of equations in {cmd:e(b)}{p_end}
-{synopt:{cmd:e(k_aux)}}number of ancillary parameters{p_end}
-{synopt:{cmd:e(p)}}p-value{p_end}
-{synopt:{cmd:e(rank)}}rank of {cmd:e(V)}{p_end}
-
-{synoptset 22 tabbed}{...}
-{p2col 5 22 24 2: Macros}{p_end}
-{synopt:{cmd:e(prefix)}}{cmd:svy}{p_end}
-{synopt:{cmd:e(cmdname)}}command name from {it:command}{p_end}
-{synopt:{cmd:e(cmd)}}same as {cmd:e(cmdname)} or {cmd:e(vce)}{p_end}
-{synopt:{cmd:e(command)}}{it:command}{p_end}
-{synopt:{cmd:e(cmdline)}}command as typed{p_end}
-{synopt:{cmd:e(wtype)}}weight type{p_end}
-{synopt:{cmd:e(wexp)}}weight expression{p_end}
-{synopt:{cmd:e(weight}{it:#}{cmd:)}}variable identifying weight for stage {it:#}{p_end}
-{synopt:{cmd:e(wvar)}}weight variable name{p_end}
-{synopt:{cmd:e(singleunit)}}{cmd:singleunit()} setting{p_end}
-{synopt:{cmd:e(strata)}}{cmd:strata()} variable{p_end}
-{synopt:{cmd:e(strata}{it:#}{cmd:)}}variable identifying strata for stage {it:#}{p_end}
-{synopt:{cmd:e(psu)}}{cmd:psu()} variable{p_end}
-{synopt:{cmd:e(su}{it:#}{cmd:)}}variable identifying sampling units for stage
-                          {it:#}{p_end}
-{synopt:{cmd:e(fpc)}}{cmd:fpc()} variable{p_end}
-{synopt:{cmd:e(fpc}{it:#}{cmd:)}}FPC for stage {it:#}{p_end}
-{synopt:{cmd:e(title)}}title in estimation output{p_end}
-{synopt:{cmd:e(poststrata)}}{cmd:poststrata()} variable{p_end}
-{synopt:{cmd:e(postweight)}}{cmd:postweight()} variable{p_end}
-{synopt:{cmd:e(vce)}}{it:vcetype} specified in {cmd:vce()}{p_end}
-{synopt:{cmd:e(vcetype)}}title used to label Std. Err.{p_end}
-{synopt:{cmd:e(mse)}}{cmd:mse}, if specified{p_end}
-{synopt:{cmd:e(subpop)}}{it:subpop} from {cmd:subpop()}{p_end}
-{synopt:{cmd:e(adjust)}}{cmd:noadjust}, if specified{p_end}
-{synopt:{cmd:e(properties)}}{cmd:b V}{p_end}
-{synopt:{cmd:e(estat_cmd)}}program used to implement {cmd:estat}{p_end}
-{synopt:{cmd:e(predict)}}program used to implement {cmd:predict}{p_end}
-{synopt:{cmd:e(marginsnotok)}}predictions disallowed by {cmd:margins}{p_end}
-{synopt:{cmd:e(marginswtype)}}weight type for {cmd:margins}{p_end}
-
-{synoptset 22 tabbed}{...}
-{p2col 5 22 24 2: Matrices}{p_end}
-{synopt:{cmd:e(b)}}estimates{p_end}
-{synopt:{cmd:e(V)}}design-based variance{p_end}
-{synopt:{cmd:e(V_srs)}}simple-random-sampling-without-replacement variance,
-V_srswor hat{p_end}
-{synopt:{cmd:e(V_srssub)}}subpopulation
-simple-random-sampling-without-replacement variance, V_srswor hat (created only
-when {cmd:subpop()} is specified){p_end}
-{synopt:{cmd:e(V_srswr)}}simple-random-sampling-with-replacement variance,
-V_srswr hat (created only when {cmd:fpc()} option is {cmd:svyset}){p_end}
-{synopt:{cmd:e(V_srssubwr)}}subpopulation simple-random-sampling-with-replacement variance, V_srswr hat (created only when {cmd:subpop()} is specified){p_end}
-{synopt:{cmd:e(V_modelbased)}}model-based variance{p_end}
-{synopt:{cmd:e(V_msp)}}variance from misspecified model fit, V_msp hat{p_end}
-{synopt:{cmd:e(_N_strata_single)}}number of strata with one sampling unit{p_end}
-{synopt:{cmd:e(_N_strata_certain)}}number of certainty strata{p_end}
-{synopt:{cmd:e(_N_strata)}}number of strata{p_end}
-{synopt:{cmd:e(_N_subp)}}estimate of subpopulation sizes within {cmd:over()}
-groups{p_end}
-
-{synoptset 22 tabbed}{...}
-{p2col 5 22 24 2: Functions}{p_end}
-{synopt:{cmd:e(sample)}}marks estimation sample{p_end}
-{p2colreset}{...}
+{pstd}{cmd:tab_from_mdt} returns placement information in {cmd:r()}, not estimation results in {cmd:e()}.{p_end}
+{synoptset 29 tabbed}{...}
+{syntab:Scalars}
+{synopt:{cmd:r(tab_start_line)}}starting row{p_end}
+{synopt:{cmd:r(tab_end_line)}}row coordinate for placing subsequent output{p_end}
+{synopt:{cmd:r(n_tables)}}number of tables; returned only with {cmd:byindicator}{p_end}
+{syntab:Macros}
+{synopt:{cmd:r(tab_start_cell_letter)}}starting Excel column{p_end}
+{synopt:{cmd:r(tab_end_cell_letter)}}column coordinate for placing subsequent output{p_end}
 
 {pstd}
-{cmd:svy} also carries forward most of the results already in {cmd:e()} from
-{it:command}.
+These are placement coordinates, not the occupied cell range. For the two-/three-
+dimensional writer, the end row is two rows after the final note and the end
+column is three columns after the last data column. With {cmd:byindicator},
+the start belongs to the first table, the end row follows the last table, and
+the end column is the furthest returned placement column across the stack.
 
+{pstd}
+Legacy return conventions are retained: some zero-/one-over paths return an empty
+starting-column macro, and legacy {cmd:by()} may report the last table's starting
+row. Retain an explicit starting column in older scripts when needed. Copy
+returned values into locals before running another command that changes {cmd:r()}.
 
-{marker reference}{...}
-{title:Reference}
+{marker requirements}{...}
+{title:Requirements and limitations}
 
-{marker KG1990}{...}
-{phang}
-Korn, E. L., and B. I. Graubard.  1990.  Simultaneous testing of regression
-coefficients with complex survey data: Use of Bonferroni t statistics.
-{it:American Statistician} 44: 270-276.
-{p_end}
+{pstd}
+The command requires Stata 14.1 or later and is tested with Stata 15.1 and 16.
+Native Stata 14.1 remains untested. On Stata versions below 16, workbook saving
+uses {cmd:putexcel close}; Stata 16 or later uses {cmd:putexcel save}.
+With {cmd:onmemory}, writing remains pending until explicitly saved; use the
+appropriate command for your installed version after completing your tables.
+Install the package's helper ado-files together; legacy paths also check for
+{cmd:confirmdir} (available via {cmd:ssc install confirmdir}).
+
+{pstd}
+The two-/three-dimensional writer supports numeric and string categories and
+checks Excel's row/column limits, including its returned placement coordinates.
+The legacy writers have shorter fixed column-letter lists and different string-
+category/formatting behavior. Their full Excel-width support is not guaranteed.
+The {cmd:byindicator} branch reuses these writers for zero/one over variable.
+
+{pstd}
+Errors 198 cover invalid option combinations, duplicate or more than three over
+variables (including expanded ranges/wildcards), and invalid placement in the
+new writer. Errors 2000 and 459 identify missing selections and inconsistent
+labels/keys/populations in the new paths. Select the correct MDT slice rather
+than dropping duplicates arbitrarily. A failure while writing later tables can
+leave earlier workbook output; Excel writes are not transactional.
+
+{pstd}
+The new multi-dimensional and {cmd:byindicator} paths restore the original dataset.
+Legacy behavior is retained, including formatting and return-value limitations.
+{cmd:tab_from_mdt} does not change the estimation logic in {cmd:genmdt}.
+
+{title:Also see}
+
+{psee}{help genmdt}, {help add_name}, {help erase_after_hash}, {help putexcel}{p_end}

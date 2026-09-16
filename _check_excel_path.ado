@@ -1,6 +1,6 @@
 capture program drop _check_excel_path
 program define _check_excel_path, rclass
-    version 16
+    version 14.1
 
     syntax , PATH(string asis)
 

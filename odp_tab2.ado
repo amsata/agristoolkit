@@ -124,70 +124,15 @@ foreach v of local indicator {
 	if ("`cell_start_num'"=="") local cell_start_num=1
 	if ("`cell_start'"=="") local cell_start A
 
-if ("`path'"!="no") {
-	
-	if ("`path'"=="") {
-	 di as error "Please an excel file where tables will be saved"
-	 exit 601
-	}
-	else {
-	_check_excel_path, path("`path'")
-	}
-	
-	if fileexists("`path'") {
-		mata: excel_status("`path'")
-		if ("`file_status'"=="open_or_locked") {
-			di as error "Excel file open or locked"
-			exit 603
-		}
-	}
-	
-		if ("`replace'"=="") {	
-			capture putexcel describe
-			
-			if (_rc== 0) putexcel save
-		
-			putexcel set "`path'", modify sheet("`sheet_name'") open
-			if _rc==3010 {
-				di as error "Putexcel bug, please restart stata"
-				exit  3010
-			}
-		}
-		else {
-		
-			capture putexcel describe
-			if (_rc== 0) {
-				 capture putexcel save
-				 if _rc==198 {
-					di as error "Putexcel bug, please restart stata"
-					exit  198
-				}
-			}
-				
-			cap putexcel set "`path'", replace sheet("`sheet_name'") open
-			if _rc==3010 {
-			
-				di as error "Putexcel bug, please restart stata"
-				exit  3010
-			}
-		} 
-	}
-	else {
-	
-		putexcel_describe
-		local open_file_handle="`r(open_file_handle)'"
-		if ("`open_file_handle'"=="no") {
-			display as error "Not putexcel open for editing, please keep specify the 'onmemory' option in the previous table, if any, or specify valid excel path"
-			exit 1
-		}
-	}
-	
-	
-	
+    if ("`path'"!="no") {
+        _tab_from_mdt_excel, action(open) path(`"`path'"') sheet(`"`sheet_name'"') `replace'
+    }
+    else _tab_from_mdt_excel, action(reuse)
+
 quietly {
 
 	******
-local alphabet "A B C D E F G H I J K L M N O P Q R S T U V W X Y Z AA AB AC AD AE AF AG AH AI AJ AK AL AM AN AO AP AQ AR AS AT AU AV AW AX AY AZ BA BA BC BD BE BF BG BH BI BJ BK BL BM BN BO BP BQ BR BS BT BU BV BW BX BY BZ"
+local alphabet "A B C D E F G H I J K L M N O P Q R S T U V W X Y Z AA AB AC AD AE AF AG AH AI AJ AK AL AM AN AO AP AQ AR AS AT AU AV AW AX AY AZ BA BB BC BD BE BF BG BH BI BJ BK BL BM BN BO BP BQ BR BS BT BU BV BW BX BY BZ"
 local col_num_start_cell:list posof "`cell_start'" in alphabet
 
 *putexcel set "`path'", modify sheet("`sheet_name'")  
@@ -235,7 +180,8 @@ reshape wide `by', i(`varlist') j(sp)
 	
 foreach v of local varlist {
 
-	if "`: value label `v''" != "" {
+	capture confirm numeric variable `v'
+	if !_rc {
 	tostring  `v', gen(`v'_bis)
 	drop `v' 
 	ren `v'_bis `v'
@@ -286,11 +232,11 @@ forvalues i = 1/`nrows' {
 
 	local EndTabTitleCell="`:word `leng_tab' of `alphabet''`TabTitleCell_num'"
 	
-putexcel (`TabTitleCell':`EndTabTitleCell'), border(all, thin) bold font("Arial",10)  vcenter txtwrap
+putexcel (`TabTitleCell':`EndTabTitleCell'), border(all, thin) bold font("Arial",10)  vcenter txtwrap overwritefmt
 
 	if("`has_over'"!="") {
-		putexcel (`TabTitleCell':`EndTabTitleCell'), border(top, medium, black)
-		putexcel (`TabTitleCell':`EndTabTitleCell'), border(bottom, medium, black)
+		putexcel (`TabTitleCell':`EndTabTitleCell'), border(top, thin, black)
+		putexcel (`TabTitleCell':`EndTabTitleCell'), border(bottom, thin, black)
 	}
 		****specify header cell
 	if(`size_header'>0){
@@ -300,8 +246,8 @@ putexcel (`TabTitleCell':`EndTabTitleCell'), border(all, thin) bold font("Arial"
 	local letter_header_cell= "`:word `pos_header_cell' of `alphabet''"
 	local header_cell_start= "`letter_header_cell'`line_header_cell'"
 	local header_cell_end="`tab_end_cell_letter'`line_header_cell'"
-	if("`has_over'"!="") putexcel `header_cell_start'=`header',bold font("Arial",10) border(all, medium, black)
-	else                 putexcel `header_cell_start'=`header',bold font("Arial",10) border(all, thin, black)
+	if("`has_over'"!="") putexcel `header_cell_start'=`header',bold font("Arial",10) border(all, thin, black) overwritefmt
+	else                 putexcel `header_cell_start'=`header',bold font("Arial",10) border(all, thin, black) overwritefmt
 	*putexcel `header_cell_start',
 	
 	di "header_cell_end: `header_cell_start'"
@@ -398,7 +344,7 @@ forvalues i = 1/`nrows' {
 				putexcel `xcell' = `my_scal', nformat("_* #,##0.00_-") 
 				}
 			else {
-				putexcel `xcell' = "`raw'", font("Arial",9, "166 166 166")
+				putexcel `xcell' = "`raw'", font("Arial",9, "166 166 166") overwritefmt
 			}
         }
         else {
@@ -437,8 +383,8 @@ if (`size_header'>0 & "`truncate'"=="") {
 		local end_header_cell "`r(cell)'"
 	if(`size_labeldim'>0)	putexcel `end_header_cell'="`:word `i' of `labeldim''"
 	else 					putexcel `end_header_cell'="`:word `i' of `varlist''"
-	if("`has_over'"=="") putexcel (`end_header_cell':`header_start_cell'), border(all, thin, black) bold
-	else 				 putexcel (`end_header_cell':`header_start_cell'), border(all, medium, black) bold
+	if("`has_over'"=="") putexcel (`end_header_cell':`header_start_cell'), border(all, thin, black) bold overwritefmt
+	else 				 putexcel (`end_header_cell':`header_start_cell'), border(all, thin, black) bold overwritefmt
 	putexcel (`end_header_cell':`header_start_cell'), merge  hcenter  vcenter 
 	quietly _excel_cell_shift, cell("`header_start_cell'") rowinc(0) colinc(1)
 		local header_start_cell "`r(cell)'"
@@ -447,7 +393,7 @@ if (`size_header'>0 & "`truncate'"=="") {
 
 		if ("`has_over'"=="") {		
 		if ("`highlight'"!="") {
-			putexcel (`TabCellEnd':`EndTabCell'), border(top, thin, black) bold
+			putexcel (`TabCellEnd':`EndTabCell'), border(top, thin, black) bold overwritefmt
 			putexcel (`TabCellEnd':`EndTabCell'), border(bottom, thin, black)
 		}
 		else {
@@ -456,26 +402,22 @@ if (`size_header'>0 & "`truncate'"=="") {
 	} 	
 	else {
 		if ("`highlight'"!="") {
-			putexcel (`TabCellEnd':`EndTabCell'), border(top, medium, black) bold
+			putexcel (`TabCellEnd':`EndTabCell'), border(top, medium, black) bold overwritefmt
 			putexcel (`TabCellEnd':`EndTabCell'), border(bottom, medium, black)
 		}
 		else {
-			putexcel (`TabCellEnd':`EndTabCell'), border(bottom, medium, black)
+			putexcel (`TabCellEnd':`EndTabCell'), border(bottom, thin, black)
 		}
 	}
 	
-	if ("`truncate'"=="") putexcel (`TabTitleCell':`TabCellEnd'), border(right, thin, black) bold font("Arial",10)
+	if ("`truncate'"=="") putexcel (`TabTitleCell':`TabCellEnd'), border(right, thin, black) bold font("Arial",10) overwritefmt
 
 		*putexcel (`TabTitleCell':`EndTabCell'), border(all, thin, blue)  
 	putexcel (`TabTitleCell':`TabCellEnd'), border(left, thin, black)  
 	
 
-	if ("`truncate'"=="") {
-		putexcel (`EndTabTitleCell':`EndTabCell'), border(right, thin, black) font("Arial",10)
-	}
-	else {
-		putexcel (`EndTabTitleCell':`EndTabCell'), border(right, medium, black) font("Arial",10)
-	}
+    // Add the outer edge without resetting header bold, row borders or highlight.
+    putexcel (`EndTabTitleCell':`EndTabCell'), border(right, thin, black)
 	
 	putexcel (`TabTitleCell':`EndTabCell'),  hcenter vcenter
 	putexcel (`cell_end':`EndTabCell'), font("Arial",9) right
@@ -485,15 +427,41 @@ if (`size_header'>0 & "`truncate'"=="") {
 	else {
 	quietly _excel_cell_shift, cell("`TabTitleCell'") rowinc(-1) colinc(0)
 	local end_header_cell "`r(cell)'"
-	putexcel (`end_header_cell':`TabCellEnd'),  border(left, medium, black)
+	putexcel (`end_header_cell':`TabCellEnd'),  border(left, thin, black)
 	}
 	
 	if (`size_header'>0 & "`truncate'"=="" & "`has_over'"!="") {
 	quietly _excel_cell_shift, cell("`TabTitleCell'") rowinc(-1) colinc(0)
 	local end_header_cell "`r(cell)'"
-	putexcel (`end_header_cell':`TabCellEnd'), border(right, medium, black)
+	putexcel (`end_header_cell':`TabCellEnd'), border(right, thin, black)
 	}
 	
+    // Explicit grey indicator dividers; do not format spacer columns or notes.
+    local border_nd = `size_varlist'
+    if "`truncate'"!="" local border_nd=0
+    local border_first = `col_num_start_cell'+`border_nd'
+    local border_last = `leng_tab'-(`size_rowtotal'>0)
+    if `border_first'<`border_last' {
+        forvalues border_j=`border_first'/`=`border_last'-1' {
+            local border_left : word `border_j' of `alphabet'
+            local border_right : word `=`border_j'+1' of `alphabet'
+            putexcel (`border_left'`TabTitleCell_num':`border_left'`TabCellEnd_num'), border(right,thin,"217 217 217")
+            putexcel (`border_right'`TabTitleCell_num':`border_right'`TabCellEnd_num'), border(left,thin,"217 217 217")
+        }
+    }
+    // Outline the occupied header/data range; titles and notes stay outside it.
+    local outline_top = `TabTitleCell_num'-(`size_header'>0)
+    local outline_right : word `leng_tab' of `alphabet'
+    putexcel (`cell_start'`outline_top':`outline_right'`outline_top'), border(top,thin,black)
+    putexcel (`cell_start'`TabCellEnd_num':`outline_right'`TabCellEnd_num'), border(bottom,thin,black)
+    putexcel (`cell_start'`outline_top':`cell_start'`TabCellEnd_num'), border(left,thin,black)
+    putexcel (`outline_right'`outline_top':`outline_right'`TabCellEnd_num'), border(right,thin,black)
+    if `border_nd'>0 {
+        local dimension_right : word `=`col_num_start_cell'+`border_nd'-1' of `alphabet'
+        local first_value : word `border_first' of `alphabet'
+        putexcel (`dimension_right'`outline_top':`dimension_right'`TabCellEnd_num'), border(right,thin,black)
+        putexcel (`first_value'`TabTitleCell_num':`first_value'`TabCellEnd_num'), border(left,thin,black)
+    }
 	*if(`size_tabtitle'>0) {
 	
 	if ("`truncate'"=="") quietly _excel_cell_shift, cell("`TitleCell'") rowinc(0) colinc(`=`leng_tab'-1')
@@ -503,7 +471,7 @@ if (`size_header'>0 & "`truncate'"=="") {
 		putexcel (`TitleCell':`tabtitle_left_cell'), merge border(left,thin,white)
 		putexcel (`TitleCell':`tabtitle_left_cell'),  border(right,thin,white)
 		putexcel (`TitleCell':`tabtitle_left_cell'),  border(top,thin,white)
-		if("`truncate'"=="") putexcel (`TitleCell'),  font("Arial",10,"black") italic
+		if("`truncate'"=="") putexcel (`TitleCell'),  font("Arial",10,"black") italic overwritefmt
 
 	if (`size_source'>0) {
 		quietly _excel_cell_shift, cell("`TabCellEnd'") rowinc(1) colinc(0)
@@ -514,7 +482,7 @@ if (`size_header'>0 & "`truncate'"=="") {
 		putexcel (`source_note_cell':`source_note_cell_end'), merge border(left,thin,white)
 		putexcel (`source_note_cell':`source_note_cell_end'),  border(right,thin,white)
 		putexcel (`source_note_cell':`source_note_cell_end'),  border(bottom,thin,white)
-		if ("`truncate'"=="") putexcel `source_note_cell'="`source_note'",  left font("Arial",9,black) italic
+		if ("`truncate'"=="") putexcel `source_note_cell'="`source_note'",  left font("Arial",9,black) italic overwritefmt
 		local TabCellEnd_num=`TabCellEnd_num'+1
 	}	
 /*	
@@ -532,16 +500,16 @@ putexcel (`TitleCell'),  left font("Arial",10,"blue") italic
 	local empy_cell_meta="`cell_start'`maskedCellNote_cell_num'"
 	local maskedCellNote="Percentage of masked cells: `per_masked_cells'%"
 	putexcel `empy_cell_meta' = "`maskedCellNote'"
-	putexcel (`empy_cell_meta'),  left font("Arial",9,"red") italic
+	putexcel (`empy_cell_meta'),  left font("Arial",9,"red") italic overwritefmt
 
 	**************** Zero cells footnote
 	local zeroCellNote_cell_num=`TabCellEnd_num'+2
 	local zero_cell_meta="`cell_start'`zeroCellNote_cell_num'"
 	local zeroCellNote="Percentage of cells with value zero(0): `per_zero_cells'%"
 	putexcel `zero_cell_meta' = "`zeroCellNote'"
-	putexcel (`zero_cell_meta'),  left font("Arial",9,"red") italic
+	putexcel (`zero_cell_meta'),  left font("Arial",9,"red") italic overwritefmt
 	
-if ("`onmemory'"=="") qui putexcel save
+if ("`onmemory'"=="") quietly _tab_from_mdt_excel, action(save) path(`"`path'"')
 
 restore
 }

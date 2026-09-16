@@ -1,14 +1,76 @@
 cap program drop tab_from_mdt
 program define tab_from_mdt, rclass
+    version 14.1
+    // Preserve the caller's data even when a legacy writer converts value().
+    preserve
+    capture noisily _tab_from_mdt_impl `0'
+    local rc = _rc
+    if !`rc' return add
+    restore
+    if `rc' exit `rc'
+end
+
+capture program drop _tab_from_mdt_impl
+program define _tab_from_mdt_impl, rclass
 
 
-	syntax varlist(default=none) [if], indicator(string asis) outfile(string) [tabtitle(string asis)  indicatorname(varlist) indvar(varlist) over(string asis) value(varlist) rowtotal(string) by(varlist) DECimal(string) valid(string) replace ONmemory header(string asis) highlight source(string) LABELdim(string asis) SUBPOPvar(string asis)]
+	syntax varlist(default=none) [if], indicator(string asis) outfile(string) [tabtitle(string asis)  indicatorname(varlist) indvar(varlist) over(string asis) value(varlist) rowtotal(string) by(varlist) DECimal(string) valid(string) replace ONmemory header(string asis) highlight source(string) LABELdim(string asis) SUBPOPvar(string asis) OMITabsentcomb BYIndicator]
 	
 local number_ind: list sizeof indicator
 local size_by: list sizeof by
 local size_over: list sizeof over
 local size_if: list sizeof if
 local size_tabtitle: list sizeof tabtitle
+
+
+* Nested headers share one row-label area for multi-indicator over() tables.
+if `size_over' > 3 {
+    di as error "over() accepts at most three variables"
+    exit 198
+}
+* Count expanded variable ranges/wildcards too, before invoking a writer.
+if `size_over' > 0 {
+    unab expanded_over : `over'
+    local size_over : word count `expanded_over'
+    if `size_over' > 3 {
+        di as error "over() accepts at most three variables"
+        exit 198
+    }
+    local unique_over : list uniq expanded_over
+    if `: word count `unique_over'' != `size_over' {
+        di as error "over() requires distinct variables"
+        exit 198
+    }
+    local over `expanded_over'
+}
+if "`omitabsentcomb'" != "" & !inrange(`size_over', 2, 3) {
+    di as error "omitabsentcomb requires two or three variables in over()"
+    exit 198
+}
+if "`byindicator'" != "" {
+    if "`by'" != "" {
+        di as error "byindicator cannot be combined with by()"
+        exit 198
+    }
+    odp_tab3 `varlist' `if', byindicator indicator(`indicator') outfile(`outfile') over(`over') ///
+        tabtitle(`tabtitle') indicatorname(`indicatorname') indvar(`indvar') value(`value') ///
+        rowtotal(`rowtotal') decimal(`decimal') valid(`valid') `replace' `onmemory' ///
+        header(`header') `highlight' source(`source') labeldim(`labeldim') subpopvar(`subpopvar') `omitabsentcomb'
+    return add
+    exit
+}
+if inrange(`size_over', 2, 3) | (`size_over' == 1 & `number_ind' > 1 & `size_by' == 0) {
+    if `size_by' != 0 {
+        di as error "by() cannot be combined with two- or three-variable over()"
+        exit 198
+    }
+    _tab_from_mdt_over `varlist' `if', indicator(`indicator') outfile(`outfile') over(`over') ///
+        tabtitle(`tabtitle') indicatorname(`indicatorname') indvar(`indvar') value(`value') ///
+        rowtotal(`rowtotal') decimal(`decimal') valid(`valid') `replace' `onmemory' ///
+        header(`header') `highlight' source(`source') labeldim(`labeldim') subpopvar(`subpopvar') `omitabsentcomb'
+    return add
+    exit
+}
 
 
 capture which confirmdir.ado
@@ -56,6 +118,7 @@ else 					 di as result `"Generating table..."'
     // Assign values
     local path = trim("`1'")
     local sheet_name = trim("`3'")
+    if "`sheet_name'"=="" local sheet_name TABLES
     local cell_start_num   = trim("`5'")
 	
 	*if ("`sheet_name'"=="") {
@@ -103,82 +166,39 @@ if (`size_by'==0) {
 	}
 	else {
 	
-		qui levelsof `over', local(my_macro)
-		local size_cat_over: list sizeof my_macro
-		local init=0
-		foreach v of local my_macro {
-			local init=`init'+1
-			if (`init'==1){
-					local lbl : label (`over') `v'
-					
-				gen keepflag = 0
-				foreach d of local indicator {
-					qui replace keepflag = 1 if `indvar' == "`d'"
-				}
-				if(`size_if'>0) qui count `if' &  `over'==`v' & keepflag==1
-				else qui count if `over'==`v' & keepflag==1
-				else 
-				local nobs = r(N)	
-				di as result "over: `lbl'..."
-				drop keepflag
-				*keep if `over'==`v'
-				if ( `nobs'>0) {
-					if(`size_if'>0)  odp_tab `varlist' `if' 	 & `over'==`v', tabtitle(`tabtitle') outfile(`outfile') indicator(`indicator') indicatorname(`indicatorname') indvar(`indvar') ///
-					value(`value') rowtotal(`rowtotal') decimal(`decimal')  header("`lbl'") valid (`valid') `replace' on has_over `highlight' source(`source') labeldim(`labeldim') subpopvar(`subpopvar')
-
-					else odp_tab `varlist' if `over'==`v', tabtitle(`tabtitle') outfile(`outfile') indicator(`indicator') indicatorname(`indicatorname') indvar(`indvar') ///
-					value(`value') rowtotal(`rowtotal') decimal(`decimal')  header("`lbl'") valid (`valid') `replace' on has_over `highlight' source(`source') labeldim(`labeldim') subpopvar(`subpopvar')
-					
-					
-					
-					local init=1
-					local tab_start_cell_letter_in="`r(tab_start_cell_letter)'"
-					local tab_start_line=`r(tab_start_line)'
-					local tab_end_line=`r(tab_end_line)'
-					local tab_end_cell_letter="`r(tab_end_cell_letter)'"
-				}
-			}
-			else {
-				local lbl : label (`over') `v'
-				if (`nobs'>0) { // nobs in init==0
-				local line_start=`r(tab_start_line)'
-				local start_cell="`r(tab_end_cell_letter)'"
-				local tab_end_line=`r(tab_end_line)'
-				local tab_end_cell_letter="`r(tab_end_cell_letter)'"
-				}
-				else {
-				local line_start=`tab_start_line'
-				local tmp1 "`r(tab_end_cell_letter)'"
-				if ("`tmp1'"!="") local start_cell="`r(tab_end_cell_letter)'"
-				local tab_end_line=`tab_end_line'
-				local tmp2 "`r(tab_end_cell_letter)'"
-				if ("`tmp2'"!="") local tab_end_cell_letter="`r(tab_end_cell_letter)'"
-			}
-			
-			gen keepflag = 0
-			foreach d of local indicator {
-				qui replace keepflag = 1 if `indvar' == "`d'"
-			}
-			if(`size_if'>0) qui count `if' &  `over'==`v' & keepflag==1
-			else qui count if `over'==`v' & keepflag==1
-			local nobs = r(N)
-			di "over: `lbl'..."
-			drop keepflag 
-				if ( `nobs'>0) {
-					if(`size_if'>0) odp_tab `varlist' `if' & `over'==`v' , outfile("`path'", "`sheet_name'", `line_start',`start_cell') indicator(`indicator') ///
-					indicatorname(`indicatorname')  indvar(`indvar') value(`value') rowtotal(`rowtotal') decimal(`decimal')  header("`lbl'") valid(`valid') truncate on has_over `highlight' source(`source') subpopvar(`subpopvar')
-					else odp_tab `varlist' if `over'==`v' , outfile("`path'", "`sheet_name'", `line_start',`start_cell') indicator(`indicator') ///
-					indicatorname(`indicatorname')  indvar(`indvar') value(`value') rowtotal(`rowtotal') decimal(`decimal')  header("`lbl'") valid(`valid') truncate on has_over `highlight' source(`source') subpopvar(`subpopvar')
-				}
-				else {
-					local tab_start_line=`line_start'
-					local tab_end_line=`tab_end_line'
-					*local tab_start_cell_letter="`start_cell'"
-					local tab_end_cell_letter="`start_cell'"
-				}
-			}
-		}
-		if ((`init'==`size_cat_over') & "`onmemory'"=="") qui putexcel save
+        // Filter once, before enumerating categories. Temporary names avoid
+        // collisions, and numeric group codes also support string categories.
+        preserve
+        if `"`if'"'!="" quietly keep `if'
+        tempvar selected category
+        quietly generate byte `selected'=0
+        foreach d of local indicator {
+            quietly replace `selected'=1 if `indvar'==`"`d'"'
+        }
+        quietly keep if `selected'
+        quietly egen long `category'=group(`over'), label
+        quietly levelsof `category', local(categories)
+        if `"`categories'"'=="" exit 2000
+        local init=0
+        foreach v of local categories {
+            local lbl : label (`category') `v'
+            if !`init' {
+                odp_tab `varlist' if `category'==`v', tabtitle(`tabtitle') outfile(`outfile') indicator(`indicator') indicatorname(`indicatorname') indvar(`indvar') ///
+                    value(`value') rowtotal(`rowtotal') decimal(`decimal') header(`"`lbl'"') valid(`valid') `replace' onmemory has_over `highlight' source(`source') labeldim(`labeldim') subpopvar(`subpopvar')
+                local tab_start_cell_letter_in "`r(tab_start_cell_letter)'"
+                local tab_start_line=r(tab_start_line)
+                local tab_end_line=r(tab_end_line)
+            }
+            else {
+                odp_tab `varlist' if `category'==`v', outfile("no", "`sheet_name'", `tab_start_line', `tab_end_cell_letter') indicator(`indicator') ///
+                    indicatorname(`indicatorname') indvar(`indvar') value(`value') rowtotal(`rowtotal') decimal(`decimal') header(`"`lbl'"') valid(`valid') truncate onmemory has_over `highlight' source(`source') subpopvar(`subpopvar')
+                local tab_end_line=max(`tab_end_line',r(tab_end_line))
+            }
+            local tab_end_cell_letter "`r(tab_end_cell_letter)'"
+            local ++init
+        }
+        restore
+        if "`onmemory'"=="" quietly _tab_from_mdt_excel, action(save) path(`"`path'"')
 	}
 }
 
