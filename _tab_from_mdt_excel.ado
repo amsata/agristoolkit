@@ -46,10 +46,10 @@ program define _tab_from_mdt_excel
     local mode modify
     if "`replace'"!="" local mode replace
     if c(stata_version)<16 {
-        capture noisily putexcel set `"`path'"', `mode' sheet("`sheet'") open
+        capture quietly putexcel set `"`path'"', `mode' sheet("`sheet'") open
     }
     else {
-        capture noisily putexcel set `"`path'"', `mode' sheet(`"`sheet'"') open
+        capture quietly putexcel set `"`path'"', `mode' sheet(`"`sheet'"') open
     }
     local rc=_rc
     if `rc' {

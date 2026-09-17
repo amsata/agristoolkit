@@ -5,7 +5,7 @@ program define _tab_from_mdt_over, rclass
     syntax varlist [if], indicator(string asis) outfile(string) over(varlist min=1 max=3) ///
         [tabtitle(string) indicatorname(varname) indvar(varname) value(varname) ///
         rowtotal(string) decimal(string) valid(string) replace ONmemory header(string) ///
-        highlight source(string) LABELdim(string asis) SUBPOPvar(varname) OMITabsentcomb]
+        highlight source(string) LABELdim(string asis) SUBPOPvar(varname) OMITabsentcomb PROGress]
 
     local nd : word count `varlist'
     local dup : list varlist & over
@@ -215,6 +215,10 @@ program define _tab_from_mdt_over, rclass
         quietly bysort `rid' `groups': egen long `lo' = total(`usable')
     }
     quietly sort `rid' `groups' `iid'
+    // Completing one combination at a time makes progress meaningful.
+    if "`progress'"!="" quietly sort `groups' `rid' `iid'
+    local progress_last = clock("`c(current_date)' `c(current_time)'", "DMYhms")
+    if "`progress'"!="" noisily display as text "Writing combinations: 0/`combinations' (0%)"
 
     if `"`path'"' == "no" _tab_from_mdt_excel, action(reuse)
     else _tab_from_mdt_excel, action(open) path(`"`path'"') sheet(`"`sheet'"') `replace'
@@ -360,6 +364,14 @@ program define _tab_from_mdt_over, rclass
                 if `hi'[`obs'] putexcel `cell' = "[-]", font("Arial",9,"166 166 166") right
                 else if !`lo'[`obs'] putexcel `cell' = "[:]", font("Arial",9,"166 166 166") right
                 else putexcel `cell' = (`total'[`obs']), nformat("#,##0.00") right
+            }
+        }
+        if "`progress'"!="" & mod(`obs',`nr'*`ni')==0 {
+            local progress_done = `obs'/(`nr'*`ni')
+            local progress_now = clock("`c(current_date)' `c(current_time)'", "DMYhms")
+            if `progress_now'-`progress_last'>=1000 | `progress_done'==`combinations' {
+                noisily display as text "Writing combinations: `progress_done'/`combinations' (" as result %3.0f (100*`progress_done'/`combinations') as text "%)"
+                local progress_last = `progress_now'
             }
         }
     }

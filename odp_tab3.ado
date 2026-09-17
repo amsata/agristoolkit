@@ -3,7 +3,7 @@ program define odp_tab3, rclass
 		
 		 **  tablabelvar(varlist) indvar(varlist)
 		*syntax [varlist(default=none)] [if], [  tabtitle(string asis) outfile(string) indicator(string asis) indicatorname(varlist) indvar(varlist) value(varlist)]
-	syntax [varlist(default=none)] [if] , [tabtitle(string asis) header(string asis) outfile(string) indicator(string) indvar(varlist) value(varlist) by(varlist) rowtotal(string) decimal(string asis) indicatorname(varlist) replace ONmemory has_over highlight source(string) LABELdim(string asis) SUBPOPvar(varname) truncate valid(string) BYIndicator over(varlist max=3) OMITabsentcomb]
+	syntax [varlist(default=none)] [if] , [tabtitle(string asis) header(string asis) outfile(string) indicator(string) indvar(varlist) value(varlist) by(varlist) rowtotal(string) decimal(string asis) indicatorname(varlist) replace ONmemory has_over highlight source(string) LABELdim(string asis) SUBPOPvar(varname) truncate valid(string) BYIndicator over(varlist max=3) OMITabsentcomb PROGress]
 	
     // New orchestration branch. The original by() branch below is unchanged.
     if "`byindicator'" != "" {
@@ -84,6 +84,7 @@ program define odp_tab3, rclass
             local ++i
             quietly use `selected', clear
             quietly keep if `indvar'==`"`ind'"'
+            if "`progress'"!="" noisily display as text "Indicator `i'/`count': `ind'"
             local writer odp_tab
             local columnopt
             if `dimensions'==1 {
@@ -97,7 +98,7 @@ program define odp_tab3, rclass
             `writer' `varlist', indicator(`ind') indvar(`indvar') indicatorname(`indicatorname') ///
                 value(`value') `columnopt' outfile("`writerpath'", "`sheet'", `next', `col') ///
                 tabtitle(`"`title`i''"') header(`header') rowtotal(`rowtotal') decimal(`decimal') ///
-                valid(`valid') subpopvar(`subpopvar') `replace' onmemory `highlight' ///
+                valid(`valid') subpopvar(`subpopvar') `replace' onmemory `highlight' `progress' ///
                 source(`source') labeldim(`labeldim')
             local next = r(tab_end_line)
             local endcol "`r(tab_end_cell_letter)'"

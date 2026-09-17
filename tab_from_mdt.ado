@@ -1,21 +1,36 @@
 cap program drop tab_from_mdt
 program define tab_from_mdt, rclass
     version 14.1
+    local invocation `"`0'"'
+    syntax varlist(default=none) [if], indicator(string asis) outfile(string) [tabtitle(string asis)  indicatorname(varlist) indvar(varlist) over(string asis) value(varlist) rowtotal(string) by(varlist) DECimal(string) valid(string) replace ONmemory header(string asis) highlight source(string) LABELdim(string asis) SUBPOPvar(string asis) OMITabsentcomb BYIndicator NOPROGress]
     // Preserve the caller's data even when a legacy writer converts value().
     preserve
-    capture noisily _tab_from_mdt_impl `0'
+    capture noisily _tab_from_mdt_impl `invocation'
     local rc = _rc
     if !`rc' return add
     restore
     if `rc' exit `rc'
+    // Run after every successful writer branch, including its early exits.
+    if "`onmemory'"=="" {
+        capture noisily putexcel_describe
+        if !_rc {
+            local path `"`r(filename)'"'
+            if `"`path'"'!="" noisily di `"{browse "`path'":Click here to open the Excel workbook}"'
+        }
+    }
 end
 
 capture program drop _tab_from_mdt_impl
 program define _tab_from_mdt_impl, rclass
 
 
-	syntax varlist(default=none) [if], indicator(string asis) outfile(string) [tabtitle(string asis)  indicatorname(varlist) indvar(varlist) over(string asis) value(varlist) rowtotal(string) by(varlist) DECimal(string) valid(string) replace ONmemory header(string asis) highlight source(string) LABELdim(string asis) SUBPOPvar(string asis) OMITabsentcomb BYIndicator]
+	syntax varlist(default=none) [if], indicator(string asis) outfile(string) [tabtitle(string asis)  indicatorname(varlist) indvar(varlist) over(string asis) value(varlist) rowtotal(string) by(varlist) DECimal(string) valid(string) replace ONmemory header(string asis) highlight source(string) LABELdim(string asis) SUBPOPvar(string asis) OMITabsentcomb BYIndicator NOPROGress]
 	
+// Keep the writers' internal progress flag; expose opt-out at the public command.
+local progress
+if "`over'"!="" & "`noprogress'"=="" local progress progress
+if "`progress'"!="" noisily display as text "Preparing over() tables..."
+
 local number_ind: list sizeof indicator
 local size_by: list sizeof by
 local size_over: list sizeof over
@@ -55,8 +70,12 @@ if "`byindicator'" != "" {
     odp_tab3 `varlist' `if', byindicator indicator(`indicator') outfile(`outfile') over(`over') ///
         tabtitle(`tabtitle') indicatorname(`indicatorname') indvar(`indvar') value(`value') ///
         rowtotal(`rowtotal') decimal(`decimal') valid(`valid') `replace' `onmemory' ///
-        header(`header') `highlight' source(`source') labeldim(`labeldim') subpopvar(`subpopvar') `omitabsentcomb'
+        header(`header') `highlight' source(`source') labeldim(`labeldim') subpopvar(`subpopvar') `omitabsentcomb' `progress'
     return add
+    if "`progress'"!="" {
+        if "`onmemory'"!="" noisily display as text "Tables complete; workbook remains in memory."
+        else noisily display as text "Tables complete; workbook saved."
+    }
     exit
 }
 if inrange(`size_over', 2, 3) | (`size_over' == 1 & `number_ind' > 1 & `size_by' == 0) {
@@ -67,8 +86,12 @@ if inrange(`size_over', 2, 3) | (`size_over' == 1 & `number_ind' > 1 & `size_by'
     _tab_from_mdt_over `varlist' `if', indicator(`indicator') outfile(`outfile') over(`over') ///
         tabtitle(`tabtitle') indicatorname(`indicatorname') indvar(`indvar') value(`value') ///
         rowtotal(`rowtotal') decimal(`decimal') valid(`valid') `replace' `onmemory' ///
-        header(`header') `highlight' source(`source') labeldim(`labeldim') subpopvar(`subpopvar') `omitabsentcomb'
+        header(`header') `highlight' source(`source') labeldim(`labeldim') subpopvar(`subpopvar') `omitabsentcomb' `progress'
     return add
+    if "`progress'"!="" {
+        if "`onmemory'"!="" noisily display as text "Tables complete; workbook remains in memory."
+        else noisily display as text "Tables complete; workbook saved."
+    }
     exit
 }
 
@@ -156,7 +179,7 @@ if (`size_by'==0) {
 	}
 	else if (`size_over'==1 & `number_ind'==1) {
 			odp_tab2 `varlist' `if' , tabtitle(`tabtitle') outfile(`outfile') indicator(`indicator') indicatorname(`indicatorname')  ///
-		indvar(`indvar') value(`value') rowtotal(`rowtotal') decimal(`decimal') valid(`valid') `replace' `onmemory' header(`header') `highlight' source(`source') labeldim(`labeldim') subpopvar(`subpopvar') by(`over')
+		indvar(`indvar') value(`value') rowtotal(`rowtotal') decimal(`decimal') valid(`valid') `replace' `onmemory' header(`header') `highlight' source(`source') labeldim(`labeldim') subpopvar(`subpopvar') by(`over') `progress'
 		
 		local tab_start_line=`r(tab_start_line)'
 		local tab_end_line=`r(tab_end_line)'
@@ -180,6 +203,9 @@ if (`size_by'==0) {
         quietly levelsof `category', local(categories)
         if `"`categories'"'=="" exit 2000
         local init=0
+        local progress_total : word count `categories'
+        local progress_last = clock("`c(current_date)' `c(current_time)'", "DMYhms")
+        if "`progress'"!="" noisily display as text "Writing combinations: 0/`progress_total' (0%)"
         foreach v of local categories {
             local lbl : label (`category') `v'
             if !`init' {
@@ -196,6 +222,13 @@ if (`size_by'==0) {
             }
             local tab_end_cell_letter "`r(tab_end_cell_letter)'"
             local ++init
+            if "`progress'"!="" {
+                local progress_now = clock("`c(current_date)' `c(current_time)'", "DMYhms")
+                if `progress_now'-`progress_last'>=1000 | `init'==`progress_total' {
+                    noisily display as text "Writing combinations: `init'/`progress_total' (" as result %3.0f (100*`init'/`progress_total') as text "%)"
+                    local progress_last = `progress_now'
+                }
+            }
         }
         restore
         if "`onmemory'"=="" quietly _tab_from_mdt_excel, action(save) path(`"`path'"')
@@ -217,6 +250,10 @@ local tab_end_line=`r(tab_end_line)'
 local tab_end_cell_letter="`r(tab_end_cell_letter)'"
 }
 
+if "`progress'"!="" {
+    if "`onmemory'"!="" noisily display as text "Tables complete; workbook remains in memory."
+    else noisily display as text "Tables complete; workbook saved."
+}
 if (`indicatorname_missing'==1) drop IndicatorName
 
 qui _excel_cell_shift, cell("`tab_end_cell_letter'") rowinc(0) colinc(2)
@@ -230,12 +267,5 @@ else return local tab_start_cell_letter= "`r(tab_start_cell_letter)'"
 return local tab_end_cell_letter="`end_cell'"
 return scalar tab_end_line=`tab_end_line'
 
-
-*if("`path'"!="no") di `"{browse "`path'":Click here to open the Excel workbook}"'
-if("`onmemory'"==""){
-noisily  putexcel_describe
-local path="`r(filename)'"
- di `"{browse "`path'":Click here to open the Excel workbook}"'
-}
 
 end

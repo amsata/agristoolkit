@@ -37,6 +37,7 @@ not part of this syntax. Options follow the comma after the row variables.
 {syntab:Required}
 {synopt:{cmd:indicator(}{it:IDs}{cmd:)}}indicator IDs to display{p_end}
 {synopt:{cmd:outfile(}{it:filename ...}{cmd:)}}Excel workbook and optional placement{p_end}
+{synopt:{opt noprog:ress}}suppress automatic over() progress display{p_end}
 {syntab:Layout}
 {synopt:{cmd:over(}{it:varlist}{cmd:)}}one, two, or three column dimensions{p_end}
 {synopt:{opt byi:ndicator}}one table per indicator, stacked vertically{p_end}
@@ -58,6 +59,7 @@ not part of this syntax. Options follow the comma after the row variables.
 {synopt:{opt highlight}}emphasize the last displayed data row{p_end}
 {syntab:Workbook management}
 {synopt:{opt replace}}replace the workbook when starting output{p_end}
+{synopt:{opt prog:ress}}report completed over() combinations{p_end}
 {synopt:{opt on:memory}}leave the workbook open for subsequent writes{p_end}
 {synoptline}
 
@@ -271,6 +273,18 @@ argument. Include a directory component in the filename, for example "./report.x
 the selected worksheet is modified at the requested cells. With {cmd:byindicator},
 replacement occurs only for the first table. Writing a narrower table into an
 existing range does not clear unrelated old cells; use a fresh area or workbook.
+
+{phang}
+Progress is displayed automatically with {cmd:over()}. It reports completed combinations while
+writing values, at most once per second plus the initial and final counts.
+With {cmd:omitabsentcomb}, the denominator counts retained combinations.
+With {cmd:byindicator}, each indicator has its own counter and indicator ID.
+100% means the combination values have been written; remaining formatting and
+saving finish before the separate table-completion message. Preparation can take
+time before the counter starts. Messages are written to Results and active logs.
+Specify {opt noprog:ress} (or {cmd:noprog}) to suppress progress messages.
+Without {cmd:over()}, no progress is displayed; {cmd:noprogress} is harmless.
+The former {cmd:progress} option is no longer accepted. Workbook saving is unchanged.
 
 {phang}
 {cmd:onmemory} keeps the putexcel workbook open for subsequent writes.

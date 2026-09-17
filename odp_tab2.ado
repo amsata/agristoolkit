@@ -3,7 +3,7 @@ program define odp_tab2, rclass
 		
 		 **  tablabelvar(varlist) indvar(varlist)
 		*syntax [varlist(default=none)] [if], [  tabtitle(string asis) outfile(string) indicator(string asis) indicatorname(varlist) indvar(varlist) value(varlist)]
-	syntax [varlist(default=none)] [if] , [tabtitle(string asis) header(string asis) outfile(string) indicator(string) indvar(varlist) value(varlist) by(varlist) rowtotal(string) decimal(string asis) indicatorname(varlist) replace ONmemory has_over highlight source(string) LABELdim(string asis) SUBPOPvar(varname) truncate valid(string)]
+	syntax [varlist(default=none)] [if] , [tabtitle(string asis) header(string asis) outfile(string) indicator(string) indvar(varlist) value(varlist) by(varlist) rowtotal(string) decimal(string asis) indicatorname(varlist) replace ONmemory has_over highlight source(string) LABELdim(string asis) SUBPOPvar(varname) truncate valid(string) PROGress]
 
 local n_if: list sizeof if
 local size_varlist:list sizeof varlist
@@ -329,9 +329,26 @@ unab vars:*
 local nrows = _N
 local ncols : word count `vars'
 local startcell "`cell_end'"
-forvalues i = 1/`nrows' {
-    local rowinc = `i' - 1
-    forvalues j = 1/`ncols' {
+local progress_total = `ncols'-`size_varlist'-(`size_rowtotal'>0)
+local progress_done = 0
+local progress_last = clock("`c(current_date)' `c(current_time)'", "DMYhms")
+if "`progress'"!="" noisily display as text "Writing combinations: 0/`progress_total' (0%)"
+// With progress, finish all rows of a category before counting it.
+local outer = `nrows'
+local inner = `ncols'
+if "`progress'"!="" {
+    local outer = `ncols'
+    local inner = `nrows'
+}
+forvalues progress_outer = 1/`outer' {
+    forvalues progress_inner = 1/`inner' {
+        local i = `progress_outer'
+        local j = `progress_inner'
+        if "`progress'"!="" {
+            local i = `progress_inner'
+            local j = `progress_outer'
+        }
+        local rowinc = `i' - 1
         local colinc = `j' - 1
         local v : word `j' of `vars'
         quietly _excel_cell_shift, cell("`startcell'") rowinc(`rowinc') colinc(`colinc')
@@ -360,6 +377,14 @@ forvalues i = 1/`nrows' {
         }
 		
 		putexcel `xcell', border(all, thin, "217 217 217") 
+        if "`progress'"!="" & `i'==`nrows' & `j'>`size_varlist' & `j'<=`size_varlist'+`progress_total' {
+            local ++progress_done
+            local progress_now = clock("`c(current_date)' `c(current_time)'", "DMYhms")
+            if `progress_now'-`progress_last'>=1000 | `progress_done'==`progress_total' {
+                noisily display as text "Writing combinations: `progress_done'/`progress_total' (" as result %3.0f (100*`progress_done'/`progress_total') as text "%)"
+                local progress_last = `progress_now'
+            }
+        }
     }
 }		
 
