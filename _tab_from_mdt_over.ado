@@ -345,7 +345,7 @@ program define _tab_from_mdt_over, rclass
         quietly _excel_cell_shift, cell("`anchor'") rowinc(`rr') colinc(`cc')
         local cell "`r(cell)'"
         if `"`raw'"'=="" local raw "[:]"
-        if "`decimal'"!="" & "`decimal'"!="." local raw = subinstr(`"`raw'"',".","`decimal'",.)
+        *if "`decimal'"!="" & "`decimal'"!="." local raw = subinstr(`"`raw'"',".","`decimal'",.)
         if !missing(real(`"`raw'"')) putexcel `cell' = (real(`"`raw'"')), nformat("#,##0.00") right
         else putexcel `cell' = `"`raw'"', font("Arial",9,"166 166 166") right
         if `iid'[`obs']==1 {
