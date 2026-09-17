@@ -10,6 +10,8 @@ F _check_excel_path.ado
 F _excel_cell_shift.ado
 F _excel_cell_shift.ado
 F _gen_all_dimcomb_dataset.ado
+F adoinit.ado
+F adoinit.sthlp
 F add_name.ado
 F add_name.sthlp
 F _genmdt_name_parse.ado
