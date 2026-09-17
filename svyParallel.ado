@@ -57,6 +57,8 @@
 	use  `odp_tab', clear
 	}
 	else{
+    tempfile worker_result
+    local worker_tasks = 0
 	forvalues i=1/`si' {
 			forvalues j=1/`ntuples' {
 				*tuples `varlist'
@@ -69,16 +71,28 @@
 				else local core = mod(`i' - 1, $PLL_CLUSTERS) + 1
 				
 			if($pll_instance == `core') {
-			m: parallel_sandbox(5)  
+
 			use "$temp_file", clear			
 			************************************************************************
 			*****check if there are hierarchical structure between 2 variables******
 			************************************************************************	
 				quietly svyEstimate `tuple' , param(`parameter') var(`var') alldim(`alldim') subpop("`subpop'")	
-			save __pll_`parallelid'_$pll_instance.dta, replace
+			if `worker_tasks'>0 append using `worker_result'
+        save `worker_result', replace
+        local ++worker_tasks
 			}
 		}
 		}	
 
-	}
+
+    local workerfile "__pll${pll_id}_agris_${pll_instance}.dta"
+    if `worker_tasks'>0 {
+        use `worker_result', clear
+        save "`workerfile'", replace
+    }
+    tempname completion
+    file open `completion' using "__pll${pll_id}_agris_${pll_instance}.done", write replace
+    file write `completion' "`worker_tasks'" _n
+    file close `completion'
+}
 	end

@@ -88,6 +88,8 @@ use `odp_tab', clear
 }
 else{
 	
+tempfile worker_result
+local worker_tasks = 0
 forvalues k=1/`s_geovars' {	
 	*if ("`conditionals'"=="") {
 		if(`s_varlist'==0) {
@@ -114,7 +116,7 @@ forvalues k=1/`s_geovars' {
 			else local core = mod(`i' - 1, $PLL_CLUSTERS) + 1
 			
 		if($pll_instance == `core') {
-		m: parallel_sandbox(5)  
+
 
 		use "$temp_file", clear
 
@@ -144,7 +146,9 @@ forvalues k=1/`s_geovars' {
 			
 	*drop rownames
 			
-		save __pll_`parallelid'_$pll_instance.dta, replace
+		if `worker_tasks'>0 append using `worker_result'
+        save `worker_result', replace
+        local ++worker_tasks
 		*append using `odp_tab', force
 		*save `odp_tab', replace
 		*restore // restore the iniial dataset for the continuation of the loop on tuples
@@ -153,5 +157,15 @@ forvalues k=1/`s_geovars' {
 	}	
 } // forvalues geovars
 
+
+    local workerfile "__pll${pll_id}_agris_${pll_instance}.dta"
+    if `worker_tasks'>0 {
+        use `worker_result', clear
+        save "`workerfile'", replace
+    }
+    tempname completion
+    file open `completion' using "__pll${pll_id}_agris_${pll_instance}.done", write replace
+    file write `completion' "`worker_tasks'" _n
+    file close `completion'
 }
 end
