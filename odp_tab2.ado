@@ -316,12 +316,6 @@ foreach v of local indvar2 {
 	replace `v'="[:]" if `v'==""
 }
 
-if ("`decimal'"!="") {
-	foreach v of local indvar2 {
-	replace `v' = subinstr(`v', ".", "`decimal'", .)
-	}
-}
-
 *export excel using  "`path'", sheet("`sheet_name'", modify) cell(`cell_end')
 
 /*** Adding table values in excel ***/
