@@ -20,6 +20,7 @@ F expand_labelled_var.ado
 F expand_labelled_var.sthlp
 F extract_before_colon.ado
 F extract_macro_elements.ado
+F _agris_parallel_collect.ado
 F genMDTbyParam.ado
 F genMDTbyParam.sthlp
 F genmdt.ado

@@ -196,5 +196,15 @@ by adding the options {opt marginlabels}, {opt units} and {opt indicatornames} a
 {cmd:. genmdt region sex rural , marginlabels("region@USA" "sex@both") mean(highbp diabetes) total(heartatk) integer(heartatk) units("highbp@%" "diabetes@%" "heartatk@people") indicator( "highbp@Proportion of people with high blood pressure" "diabetes@Proportion of people with diabetes" "heartatk@Total number of people who have had a heart attack" )}
 {p_end}
 
+{title:Parallel temporary files}
+
+{pstd}
+When {opt setcluster()} enables parallel estimation, each run uses a unique folder
+inside Stata's {cmd:c(tmpdir)}. Parallel work files are not written to the working
+directory. Each worker's results are collected by job and worker identifier.
+Successful runs clean up their job files and remove empty run folders.
+If estimation fails, the diagnostic folder is retained and its path is displayed.
+The original working directory is restored after the run.
+
 {marker reference}{...}
 {title:Reference}
