@@ -1,6 +1,7 @@
 *! Nested column headers for one, two or three column dimensions.
 capture program drop _tab_from_mdt_over
 program define _tab_from_mdt_over, rclass
+
     version 14.1
     syntax varlist [if], indicator(string asis) outfile(string) over(varlist min=1 max=3) ///
         [tabtitle(string) indicatorname(varname) indvar(varname) value(varname) ///
@@ -223,31 +224,44 @@ program define _tab_from_mdt_over, rclass
     if `"`path'"' == "no" _tab_from_mdt_excel, action(reuse)
     else _tab_from_mdt_excel, action(open) path(`"`path'"') sheet(`"`sheet'"') `replace'
 
+    _mdt_format init `replace'
+    local resetstyle
+    if "`replace'"!="" local resetstyle reset
     local off = 0
     foreach heading in tabtitle header {
         if `"``heading''"'!="" {
             local rr = `sr'+`off'
-            putexcel `startcol'`rr' = `"``heading''"'
-            putexcel (`startcol'`rr':`right'`rr'), merge italic font("Arial",10) left
+            _mdt_format `startcol'`rr' = `"``heading''"'
+            _mdt_format (`startcol'`rr':`right'`rr'), merge italic font("Arial",10) left
+            if "`heading'"=="tabtitle" {
+                _mdt_format (`startcol'`rr':`right'`rr'), border(top,thin,white)
+                _mdt_format (`startcol'`rr':`right'`rr'), border(left,thin,white)
+                _mdt_format (`startcol'`rr':`right'`rr'), border(right,thin,white)
+            }
             local ++off
         }
     }
     local h1 = `sr'+`top'
     local hlast = `h1'+`nover'
-    putexcel (`startcol'`h1':`right'`lastrow'), font("Arial",9) border(all,thin,"217 217 217")
-    putexcel (`startcol'`h1':`right'`hlast'), bold font("Arial",10) hcenter vcenter txtwrap border(all,thin,black)
+    _mdt_format (`startcol'`h1':`right'`lastrow'), font("Arial",9) border(all,thin,"217 217 217") `resetstyle'
+    _mdt_format (`startcol'`h1':`right'`hlast'), bold font("Arial",10) hcenter vcenter txtwrap border(all,thin,black) `resetstyle'
     forvalues d=1/`nd' {
         quietly _excel_cell_shift, cell("`anchor'") rowinc(0) colinc(`=`d'-1')
         local col = regexr("`r(cell)'", "[0-9]+$", "")
         local label : word `d' of `varlist'
         if `"`labeldim'"'!="" local label : word `d' of `labeldim'
-        putexcel `col'`h1' = `"`label'"'
-        putexcel (`col'`h1':`col'`hlast'), merge
+        _mdt_format `col'`h1' = `"`label'"'
+        _mdt_format (`col'`h1':`col'`hlast'), merge
+        local firstdata=`sr'+`dataoff'
+        _mdt_format (`col'`firstdata':`col'`lastrow'), font("Arial",9) bold left border(all,thin,"217 217 217") `resetstyle'
         forvalues r=1/`nr' {
             local rr = `sr'+`dataoff'+`r'-1
-            putexcel `col'`rr' = `"`row`r'_`d''"', bold left
+            _mdt_format `col'`rr' = `"`row`r'_`d''"'
         }
     }
+    // Native 15/16 reset can leave a different numeric-format ID.
+    // Restore General through the preserving path before writing numeric values.
+    if "`replace'"!="" _mdt_format (`startcol'`h1':`right'`lastrow'), nformat("General")
     // Emit a header when entering its span, preserving depth-first write order.
     forvalues combination=0/`=`combinations'-1' {
         local first = `nd'+`combination'*`block'
@@ -277,14 +291,14 @@ program define _tab_from_mdt_over, rclass
                 local left = regexr("`r(cell)'", "[0-9]+$", "")
                 quietly _excel_cell_shift, cell("`anchor'") rowinc(0) colinc(`=`first'+`span'-1')
                 local end = regexr("`r(cell)'", "[0-9]+$", "")
-                putexcel `left'`hr' = `"`label`level'_`category''"'
+                _mdt_format `left'`hr' = `"`label`level'_`category''"'
                 if `level'==1 {
-                    if `span'>1 putexcel (`left'`hr':`end'`hr'), merge border(all,thin,black)
-                    else putexcel `left'`hr', border(all,thin,black)
+                    if `span'>1 _mdt_format (`left'`hr':`end'`hr'), merge border(all,thin,black)
+                    else _mdt_format `left'`hr', border(all,thin,black)
                 }
                 else {
-                    if `span'>1 putexcel (`left'`hr':`end'`hr'), merge
-                    putexcel (`left'`hr':`end'`hr'), border(all,thin,black)
+                    if `span'>1 _mdt_format (`left'`hr':`end'`hr'), merge
+                    _mdt_format (`left'`hr':`end'`hr'), border(all,thin,black)
                 }
             }
         }
@@ -293,7 +307,7 @@ program define _tab_from_mdt_over, rclass
             if `np' & `k'==1 local label `"`valid'"'
             else if `k'<=`ni'+`np' local label `"`title`=`k'-`np'''"'
             quietly _excel_cell_shift, cell("`anchor'") rowinc(`=`top'+`nover'') colinc(`=`first'+`k'-1')
-            putexcel `r(cell)' = `"`label'"'
+            _mdt_format `r(cell)' = `"`label'"'
         }
     }
     // Explicit internal indicator dividers, including the indicator heading row.
@@ -305,8 +319,8 @@ program define _tab_from_mdt_over, rclass
                 local left = regexr("`r(cell)'", "[0-9]+$", "")
                 quietly _excel_cell_shift, cell("`anchor'") rowinc(0) colinc(`=`base'+`np'+`j'')
                 local rightcol = regexr("`r(cell)'", "[0-9]+$", "")
-                putexcel (`left'`hlast':`left'`lastrow'), border(right,thin,"217 217 217")
-                putexcel (`rightcol'`hlast':`rightcol'`lastrow'), border(left,thin,"217 217 217")
+                _mdt_format (`left'`hlast':`left'`lastrow'), border(right,thin,"217 217 217")
+                _mdt_format (`rightcol'`hlast':`rightcol'`lastrow'), border(left,thin,"217 217 217")
             }
         }
         if `np' {
@@ -314,26 +328,26 @@ program define _tab_from_mdt_over, rclass
             local left = regexr("`r(cell)'", "[0-9]+$", "")
             quietly _excel_cell_shift, cell("`anchor'") rowinc(0) colinc(`=`base'+1')
             local rightcol = regexr("`r(cell)'", "[0-9]+$", "")
-            putexcel (`left'`hlast':`left'`lastrow'), border(right,thin,black)
-            putexcel (`rightcol'`hlast':`rightcol'`lastrow'), border(left,thin,black)
+            _mdt_format (`left'`hlast':`left'`lastrow'), border(right,thin,black)
+            _mdt_format (`rightcol'`hlast':`rightcol'`lastrow'), border(left,thin,black)
         }
     }
     // Black outlines and category boundaries override the internal grey grid.
-    putexcel (`startcol'`h1':`right'`h1'), border(top,thin,black)
-    putexcel (`startcol'`lastrow':`right'`lastrow'), border(bottom,thin,black)
-    putexcel (`startcol'`h1':`startcol'`lastrow'), border(left,thin,black)
-    putexcel (`right'`h1':`right'`lastrow'), border(right,thin,black)
+    _mdt_format (`startcol'`h1':`right'`h1'), border(top,thin,black)
+    _mdt_format (`startcol'`lastrow':`right'`lastrow'), border(bottom,thin,black)
+    _mdt_format (`startcol'`h1':`startcol'`lastrow'), border(left,thin,black)
+    _mdt_format (`right'`h1':`right'`lastrow'), border(right,thin,black)
     quietly _excel_cell_shift, cell("`anchor'") rowinc(0) colinc(`=`nd'-1')
     local dimension_right = regexr("`r(cell)'", "[0-9]+$", "")
-    putexcel (`dimension_right'`h1':`dimension_right'`lastrow'), border(right,thin,black)
+    _mdt_format (`dimension_right'`h1':`dimension_right'`lastrow'), border(right,thin,black)
     forvalues b=0/`=`combinations'-1' {
         local offset = `nd'+`b'*`block'
         quietly _excel_cell_shift, cell("`anchor'") rowinc(0) colinc(`offset')
         local blockleft = regexr("`r(cell)'", "[0-9]+$", "")
         quietly _excel_cell_shift, cell("`anchor'") rowinc(0) colinc(`=`offset'+`block'-1')
         local blockright = regexr("`r(cell)'", "[0-9]+$", "")
-        putexcel (`blockleft'`hlast':`blockleft'`lastrow'), border(left,thin,black)
-        putexcel (`blockright'`hlast':`blockright'`lastrow'), border(right,thin,black)
+        _mdt_format (`blockleft'`hlast':`blockleft'`lastrow'), border(left,thin,black)
+        _mdt_format (`blockright'`hlast':`blockright'`lastrow'), border(right,thin,black)
     }
     // The rectangular long grid guarantees every value uses the same row mapping.
     forvalues obs=1/`=_N' {
@@ -345,25 +359,40 @@ program define _tab_from_mdt_over, rclass
         if `compact' local combination = `cid'[`obs']-1
         local first = `nd'+`combination'*`block'
         local cc = `first'+`np'+`iid'[`obs']-1
+        local rowkey = `rid'[`obs']
         local raw = `text'[`obs']
         quietly _excel_cell_shift, cell("`anchor'") rowinc(`rr') colinc(`cc')
         local cell "`r(cell)'"
         if `"`raw'"'=="" local raw "[:]"
         *if "`decimal'"!="" & "`decimal'"!="." local raw = subinstr(`"`raw'"',".","`decimal'",.)
-        if !missing(real(`"`raw'"')) putexcel `cell' = (real(`"`raw'"')), nformat("#,##0.00") right
-        else putexcel `cell' = `"`raw'"', font("Arial",9,"166 166 166") right
+        if !missing(real(`"`raw'"')) {
+            _mdt_format `cell' = (real(`"`raw'"'))
+            local format_`cc'_`rowkey' numeric
+        }
+        else {
+            _mdt_format `cell' = `"`raw'"'
+            local format_`cc'_`rowkey' flag
+        }
         if `iid'[`obs']==1 {
             if `np' {
                 quietly _excel_cell_shift, cell("`anchor'") rowinc(`rr') colinc(`first')
-                if missing(`pop'[`obs']) putexcel `r(cell)' = "[:]"
-                else putexcel `r(cell)' = (`pop'[`obs']), nformat("#,##0") right
+                if missing(`pop'[`obs']) _mdt_format `r(cell)' = "[:]"
+                else {
+                    _mdt_format `r(cell)' = (`pop'[`obs'])
+                    local format_`first'_`rowkey' population
+                }
             }
             if `nt' {
                 quietly _excel_cell_shift, cell("`anchor'") rowinc(`rr') colinc(`=`first'+`block'-1')
                 local cell "`r(cell)'"
-                if `hi'[`obs'] putexcel `cell' = "[-]", font("Arial",9,"166 166 166") right
-                else if !`lo'[`obs'] putexcel `cell' = "[:]", font("Arial",9,"166 166 166") right
-                else putexcel `cell' = (`total'[`obs']), nformat("#,##0.00") right
+                local totalcol=`first'+`block'-1
+                local format_`totalcol'_`rowkey' flag
+                if `hi'[`obs'] _mdt_format `cell' = "[-]"
+                else if !`lo'[`obs'] _mdt_format `cell' = "[:]"
+                else {
+                    _mdt_format `cell' = (`total'[`obs'])
+                    local format_`totalcol'_`rowkey' numeric
+                }
             }
         }
         if "`progress'"!="" & mod(`obs',`nr'*`ni')==0 {
@@ -375,15 +404,42 @@ program define _tab_from_mdt_over, rclass
             }
         }
     }
-    if "`highlight'"!="" putexcel (`startcol'`lastrow':`right'`lastrow'), bold border(top,thin,black)
+    // Apply value formats to contiguous runs; retain the finished borders.
+    forvalues column=`nd'/`=`width'-1' {
+        local previous
+        local firstrun=1
+        forvalues rowkey=1/`=`nr'+1' {
+            local kind "`format_`column'_`rowkey''"
+            if `rowkey'>1 & "`kind'"!="`previous'" {
+                if "`previous'"!="" {
+                    quietly _excel_cell_shift, cell("`anchor'") rowinc(`=`dataoff'+`firstrun'-1') colinc(`column')
+                    local firstcell "`r(cell)'"
+                    quietly _excel_cell_shift, cell("`anchor'") rowinc(`=`dataoff'+`rowkey'-2') colinc(`column')
+                    local lastcell "`r(cell)'"
+                    local style nformat("#,##0.00") right
+                    if "`previous'"=="population" local style nformat("#,##0") right
+                    if "`previous'"=="flag" local style font("Arial",9,"166 166 166") right
+                    _mdt_format (`firstcell':`lastcell'), `style'
+                }
+                local firstrun=`rowkey'
+            }
+            local previous "`kind'"
+        }
+    }
+    if "`highlight'"!="" _mdt_format (`startcol'`lastrow':`right'`lastrow'), bold border(top,thin,black)
     local note = `lastrow'+1
     if `"`source'"'!="" {
-        putexcel `startcol'`note' = `"Source: `source'"', italic font("Arial",9)
+        _mdt_format `startcol'`note' = `"Source: `source'"', italic font("Arial",9)
+        _mdt_format (`startcol'`note':`right'`note'), merge
+        _mdt_format (`startcol'`note':`right'`note'), border(bottom,thin,white)
+        _mdt_format (`startcol'`note':`right'`note'), border(left,thin,white)
+        _mdt_format (`startcol'`note':`right'`note'), border(right,thin,white)
         local ++note
     }
-    putexcel `startcol'`note' = "Percentage of masked cells: `masked'%", italic font("Arial",9,"red")
+    _mdt_format `startcol'`note' = "Percentage of masked cells: `masked'%", italic font("Arial",9,"red")
     local ++note
-    putexcel `startcol'`note' = "Percentage of cells with value zero(0): `zeros'%", italic font("Arial",9,"red")
+    _mdt_format `startcol'`note' = "Percentage of cells with value zero(0): `zeros'%", italic font("Arial",9,"red")
+    _mdt_format flush
     if "`onmemory'"=="" quietly _tab_from_mdt_excel, action(save) path(`"`path'"')
     quietly _excel_cell_shift, cell("`anchor'") rowinc(0) colinc(`=`width'+2')
     local nextcol = regexr("`r(cell)'", "[0-9]+$", "")

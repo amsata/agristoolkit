@@ -1,6 +1,7 @@
 cap program drop odp_tab
 program define odp_tab, rclass
 
+
 	syntax varlist(default=none) [if], indicator(string asis) [tabtitle(string asis) truncate header(string asis) outfile(string) indicatorname(varlist) indvar(varlist) value(varlist) rowtotal (string) DECimal(string) valid (string) replace ONmemory has_over highlight source(string) LABELdim(string asis) SUBPOPvar(varname)]
 
 					
@@ -121,6 +122,7 @@ foreach v of local indicator {
     }
     else _tab_from_mdt_excel, action(reuse)
 
+    _mdt_format init `replace'
 local alphabet "A B C D E F G H I J K L M N O P Q R S T U V W X Y Z AA AB AC AD AE AF AG AH AI AJ AK AL AM AN AO AP AQ AR AS AT AU AV AW AX AY AZ BA BB BC BD BE BF BG BH BI BJ BK BL BM BN BO BP BQ BR BS BT BU BV BW BX BY BZ CA CB CC CD CE CF CG CH CI CJ CK CL CM CN CO CP CQ CR CS CT CU CV CW CX CY CZ DA DB DC DD DE DF DG DH DI DJ DK DL DM DN DO DP DQ DR DS DT DU DV DW DX DY DZ EA EB EC ED EE EF EG EH EI EJ EK EL EM EN EO EP EQ ER ES ET EU EV EW EX EY EZ"
 local col_num_start_cell:list posof "`cell_start'" in alphabet
 
@@ -290,10 +292,10 @@ forvalues i = 1/`nrows' {
         local xcell "`r(cell)'"
         capture confirm string variable `v'
         if !_rc {
-            putexcel `xcell' = "`=`v'[`i']'"
+            _mdt_format `xcell' = "`=`v'[`i']'"
         }
         else {
-            putexcel `xcell' = `=`v'[`i']'
+            _mdt_format `xcell' = `=`v'[`i']'
         }
     }
 }
@@ -305,10 +307,10 @@ forvalues i = 1/`nrows' {
 	local tab_after_end_cell_letter="`:word `leng_tab_final' of `alphabet''"
 
 	local EndTabTitleCell="`:word `leng_tab' of `alphabet''`TabTitleCell_num'"
-	putexcel (`TabTitleCell':`EndTabTitleCell'), border(all, thin, black) bold font("Arial",10)  vcenter txtwrap overwritefmt
+	_mdt_format (`TabTitleCell':`EndTabTitleCell'), border(all, thin, black) bold font("Arial",10)  vcenter txtwrap reset
 	if("`has_over'"!="") {
-		putexcel (`TabTitleCell':`EndTabTitleCell'), border(top, thin, black)
-		putexcel (`TabTitleCell':`EndTabTitleCell'), border(bottom, thin, black)
+		_mdt_format (`TabTitleCell':`EndTabTitleCell'), border(top, thin, black)
+		_mdt_format (`TabTitleCell':`EndTabTitleCell'), border(bottom, thin, black)
 	}
 		****specify header cell
 	if(`size_header'>0){
@@ -318,14 +320,14 @@ forvalues i = 1/`nrows' {
 	local letter_header_cell= "`:word `pos_header_cell' of `alphabet''"
 	local header_cell_start= "`letter_header_cell'`line_header_cell'"
 	local header_cell_end="`tab_end_cell_letter'`line_header_cell'"
-	if("`has_over'"!="") putexcel `header_cell_start'=`header',bold font("Arial",10) border(all, thin, black) overwritefmt
-	else                 putexcel `header_cell_start'=`header',bold font("Arial",10) border(all, thin, black) overwritefmt
-	*putexcel `header_cell_start',
+	if("`has_over'"!="") _mdt_format `header_cell_start'=`header',bold font("Arial",10) border(all, thin, black) reset
+	else                 _mdt_format `header_cell_start'=`header',bold font("Arial",10) border(all, thin, black) reset
+	*_mdt_format `header_cell_start',
 	
 	di "header_cell_end: `header_cell_start'"
 	di "header_cell_end=`header_cell_end'"
 
-	putexcel (`header_cell_start':`header_cell_end'), merge  hcenter  vcenter
+	_mdt_format (`header_cell_start':`header_cell_end'), merge  hcenter  vcenter
 	}
 
 	
@@ -464,10 +466,12 @@ forvalues i = 1/`nrows' {
 			local raw "`=`v'[`i']'"
 			local my_scal = real("`raw'")
 			if !missing(`my_scal') {
-				putexcel `xcell' = `my_scal', nformat("_* #,##0.00_-") 
+				if "`replace'"!="" _mdt_format `xcell' = `my_scal'
+                else _mdt_format `xcell' = `my_scal', nformat("_* #,##0.00_-") 
 				}
 			else {
-				putexcel `xcell' = "`raw'", font("Arial",9, "166 166 166") overwritefmt
+				if "`replace'"!="" _mdt_format `xcell' = "`raw'"
+                else _mdt_format `xcell' = "`raw'", font("Arial",9,"166 166 166") reset
 			}
         }
         else {
@@ -475,20 +479,52 @@ forvalues i = 1/`nrows' {
             if "`vallab'" != "" {
                 local code = `v'[`i']
                 local lab : label `vallab' `code'
-                putexcel `xcell' = "`lab'"
+                _mdt_format `xcell' = "`lab'"
             }
             else {
-                putexcel `xcell' = `=`v'[`i']' 
+                _mdt_format `xcell' = `=`v'[`i']' 
             }
         }
 		
-		putexcel `xcell', border(all, thin, "217 217 217") 
+		if "`replace'"=="" _mdt_format `xcell', border(all,thin,"217 217 217") 
     }
 }		
+
+if "`replace'"!="" {
+// Establish a complete format per contiguous type run, independent of cell count.
+forvalues column=1/`ncols' {
+    local variable : word `column' of `vars'
+    local firstrow=1
+    local previous=-1
+    forvalues observation=1/`=`nrows'+1' {
+        local kind=-2
+        if `observation'<=`nrows' {
+            local kind=0
+            capture confirm string variable `variable'
+            if !_rc {
+                local content = `variable'[`observation']
+                local kind=cond(missing(real(`"`content'"')),2,1)
+            }
+        }
+        if `observation'>1 & `kind'!=`previous' {
+            quietly _excel_cell_shift, cell("`startcell'") rowinc(`=`firstrow'-1') colinc(`=`column'-1')
+            local firstcell "`r(cell)'"
+            quietly _excel_cell_shift, cell("`startcell'") rowinc(`=`observation'-2') colinc(`=`column'-1')
+            local lastcell "`r(cell)'"
+            local style
+            if `previous'==1 local style nformat("_* #,##0.00_-")
+            if `previous'==2 local style font("Arial",9,"166 166 166")
+            _mdt_format (`firstcell':`lastcell'), border(all,thin,"217 217 217") `style' reset
+            local firstrow=`observation'
+        }
+        local previous=`kind'
+    }
+}
+}
 ********************************************************************************
 ***************************TABLE FORMATING**************************************
 ********************************************************************************
-	if (`size_tabtitle'!=0) putexcel `TitleCell' = `tabtitle'
+	if (`size_tabtitle'!=0) _mdt_format `TitleCell' = `tabtitle'
 	qui count 
 	local TabCellEnd_num=`r(N)'+`end_num'-1
 	local TabCellEnd= "`cell_start'`TabCellEnd_num'"
@@ -503,38 +539,38 @@ forvalues i = 1/`nrows' {
 	forvalues i=1/`size_varlist' {
 		quietly _excel_cell_shift, cell("`header_start_cell'") rowinc(-1) colinc(0)
 		local end_header_cell "`r(cell)'"
-	if(`size_labeldim'>0)	putexcel `end_header_cell'="`:word `i' of `labeldim''"
-	else 					putexcel `end_header_cell'="`:word `i' of `varlist''"
-	if("`has_over'"=="") putexcel (`end_header_cell':`header_start_cell'), border(all, thin, black) bold overwritefmt
-	else 				 putexcel (`end_header_cell':`header_start_cell'), border(all, thin, black) bold overwritefmt
-	putexcel (`end_header_cell':`header_start_cell'), merge  hcenter  vcenter 
+	if(`size_labeldim'>0)	_mdt_format `end_header_cell'="`:word `i' of `labeldim''"
+	else 					_mdt_format `end_header_cell'="`:word `i' of `varlist''"
+	if("`has_over'"=="") _mdt_format (`end_header_cell':`header_start_cell'), border(all, thin, black) bold reset
+	else 				 _mdt_format (`end_header_cell':`header_start_cell'), border(all, thin, black) bold reset
+	_mdt_format (`end_header_cell':`header_start_cell'), merge  hcenter  vcenter 
 	quietly _excel_cell_shift, cell("`header_start_cell'") rowinc(0) colinc(1)
 		local header_start_cell "`r(cell)'"
 	}
 	}
 
-	*putexcel (`TabCellEnd':`EndTabCell'), border(top, thin) bold font("Arial",10) // if margin is absent
+	*_mdt_format (`TabCellEnd':`EndTabCell'), border(top, thin) bold font("Arial",10) // if margin is absent
 	if ("`has_over'"=="") {		
 		if ("`highlight'"!="") {
-			putexcel (`TabCellEnd':`EndTabCell'), border(top, thin, black) bold overwritefmt
-			putexcel (`TabCellEnd':`EndTabCell'), border(bottom, thin, black)
+			_mdt_format (`TabCellEnd':`EndTabCell'), border(top, thin, black) bold reset
+			_mdt_format (`TabCellEnd':`EndTabCell'), border(bottom, thin, black)
 		}
 		else {
-			putexcel (`TabCellEnd':`EndTabCell'), border(bottom, thin, black)
+			_mdt_format (`TabCellEnd':`EndTabCell'), border(bottom, thin, black)
 		}
 	} 	
 	else {
 		if ("`highlight'"!="") {
-			putexcel (`TabCellEnd':`EndTabCell'), border(top, medium, black) bold overwritefmt
-			putexcel (`TabCellEnd':`EndTabCell'), border(bottom, medium, black)
+			_mdt_format (`TabCellEnd':`EndTabCell'), border(top, medium, black) bold reset
+			_mdt_format (`TabCellEnd':`EndTabCell'), border(bottom, medium, black)
 		}
 		else {
-			putexcel (`TabCellEnd':`EndTabCell'), border(bottom, thin, black)
+			_mdt_format (`TabCellEnd':`EndTabCell'), border(bottom, thin, black)
 		}
 	}
 	
 	
-	if ("`truncate'"=="") putexcel (`TabTitleCell':`TabCellEnd'), border(right, thin, black) bold font("Arial",10) overwritefmt
+	if ("`truncate'"=="") _mdt_format (`TabTitleCell':`TabCellEnd'), border(right, thin, black) bold font("Arial",10) reset
 	**adding thin line after valide
 	if (`size_valid'>0) {
 		if (`max_diff'==0) {
@@ -542,38 +578,38 @@ forvalues i = 1/`nrows' {
 			local valid_cell_top "`r(cell)'"
 			quietly _excel_cell_shift, cell("`TabCellEnd'") rowinc(0) colinc(1)
 			local valid_cell_bottom "`r(cell)'"	
-			if ("`truncate'"=="") putexcel (`valid_cell_top':`valid_cell_bottom'), border(right,thin,black)
-			else 				  putexcel (`TabTitleCell':`TabCellEnd'), border(right,thin,black)
+			if ("`truncate'"=="") _mdt_format (`valid_cell_top':`valid_cell_bottom'), border(right,thin,black)
+			else 				  _mdt_format (`TabTitleCell':`TabCellEnd'), border(right,thin,black)
 		}
 	}
 	
 	
-		*putexcel (`TabTitleCell':`EndTabCell'), border(all, thin, blue)  
-	putexcel (`TabTitleCell':`TabCellEnd'), border(left, thin, black)  
+		*_mdt_format (`TabTitleCell':`EndTabCell'), border(all, thin, blue)  
+	_mdt_format (`TabTitleCell':`TabCellEnd'), border(left, thin, black)  
 	
 
 	if ("`truncate'"=="") {
-		putexcel (`EndTabTitleCell':`EndTabCell'), border(right, thin, black) font("Arial",10)
+		_mdt_format (`EndTabTitleCell':`EndTabCell'), border(right, thin, black) font("Arial",10)
 	}
 	else {
-		putexcel (`EndTabTitleCell':`EndTabCell'), border(right, thin, black) font("Arial",10)
+		_mdt_format (`EndTabTitleCell':`EndTabCell'), border(right, thin, black) font("Arial",10)
 	}
 	
-	putexcel (`TabTitleCell':`EndTabCell'),  hcenter vcenter
-	putexcel (`cell_end':`EndTabCell'), font("Arial",9) right
+	_mdt_format (`TabTitleCell':`EndTabCell'),  hcenter vcenter
+	_mdt_format (`cell_end':`EndTabCell'), font("Arial",9) right
 	if ("`truncate'"=="" & "`has_over'"=="") {
-	putexcel (`TabTitleCell':`TabCellEnd'),  left
+	_mdt_format (`TabTitleCell':`TabCellEnd'),  left
 	}
 	else {
 	quietly _excel_cell_shift, cell("`TabTitleCell'") rowinc(-1) colinc(0)
 	local end_header_cell "`r(cell)'"
-	putexcel (`end_header_cell':`TabCellEnd'),  border(left, thin, black)
+	_mdt_format (`end_header_cell':`TabCellEnd'),  border(left, thin, black)
 	}
 	
 	if (`size_header'>0 & "`truncate'"=="" & "`has_over'"!="") {
 	quietly _excel_cell_shift, cell("`TabTitleCell'") rowinc(-1) colinc(0)
 	local end_header_cell "`r(cell)'"
-	putexcel (`end_header_cell':`TabCellEnd'), border(right, thin, black)
+	_mdt_format (`end_header_cell':`TabCellEnd'), border(right, thin, black)
 	}
     // Explicit grey indicator dividers; do not format spacer columns or notes.
     local border_nd = `size_varlist'
@@ -584,30 +620,30 @@ forvalues i = 1/`nrows' {
         forvalues border_j=`border_first'/`=`border_last'-1' {
             local border_left : word `border_j' of `alphabet'
             local border_right : word `=`border_j'+1' of `alphabet'
-            putexcel (`border_left'`TabTitleCell_num':`border_left'`TabCellEnd_num'), border(right,thin,"217 217 217")
-            putexcel (`border_right'`TabTitleCell_num':`border_right'`TabCellEnd_num'), border(left,thin,"217 217 217")
+            _mdt_format (`border_left'`TabTitleCell_num':`border_left'`TabCellEnd_num'), border(right,thin,"217 217 217")
+            _mdt_format (`border_right'`TabTitleCell_num':`border_right'`TabCellEnd_num'), border(left,thin,"217 217 217")
         }
     }
     if `size_valid'>0 {
         if `max_diff'==0 {
             local border_valid : word `border_first' of `alphabet'
             local border_value : word `=`border_first'+1' of `alphabet'
-            putexcel (`border_valid'`TabTitleCell_num':`border_valid'`TabCellEnd_num'), border(right,thin,black)
-            putexcel (`border_value'`TabTitleCell_num':`border_value'`TabCellEnd_num'), border(left,thin,black)
+            _mdt_format (`border_valid'`TabTitleCell_num':`border_valid'`TabCellEnd_num'), border(right,thin,black)
+            _mdt_format (`border_value'`TabTitleCell_num':`border_value'`TabCellEnd_num'), border(left,thin,black)
         }
     }
     // Outline the occupied header/data range; titles and notes stay outside it.
     local outline_top = `TabTitleCell_num'-(`size_header'>0)
     local outline_right : word `leng_tab' of `alphabet'
-    putexcel (`cell_start'`outline_top':`outline_right'`outline_top'), border(top,thin,black)
-    putexcel (`cell_start'`TabCellEnd_num':`outline_right'`TabCellEnd_num'), border(bottom,thin,black)
-    putexcel (`cell_start'`outline_top':`cell_start'`TabCellEnd_num'), border(left,thin,black)
-    putexcel (`outline_right'`outline_top':`outline_right'`TabCellEnd_num'), border(right,thin,black)
+    _mdt_format (`cell_start'`outline_top':`outline_right'`outline_top'), border(top,thin,black)
+    _mdt_format (`cell_start'`TabCellEnd_num':`outline_right'`TabCellEnd_num'), border(bottom,thin,black)
+    _mdt_format (`cell_start'`outline_top':`cell_start'`TabCellEnd_num'), border(left,thin,black)
+    _mdt_format (`outline_right'`outline_top':`outline_right'`TabCellEnd_num'), border(right,thin,black)
     if `border_nd'>0 {
         local dimension_right : word `=`col_num_start_cell'+`border_nd'-1' of `alphabet'
         local first_value : word `border_first' of `alphabet'
-        putexcel (`dimension_right'`outline_top':`dimension_right'`TabCellEnd_num'), border(right,thin,black)
-        putexcel (`first_value'`TabTitleCell_num':`first_value'`TabCellEnd_num'), border(left,thin,black)
+        _mdt_format (`dimension_right'`outline_top':`dimension_right'`TabCellEnd_num'), border(right,thin,black)
+        _mdt_format (`first_value'`TabTitleCell_num':`first_value'`TabCellEnd_num'), border(left,thin,black)
     }
 	*if(`size_tabtitle'>0) {
 	
@@ -615,10 +651,10 @@ forvalues i = 1/`nrows' {
 	else 				  quietly _excel_cell_shift, cell("`TitleCell'") rowinc(0) colinc(`=`leng_tab'-2')
 
 		local tabtitle_left_cell "`r(cell)'"
-		putexcel (`TitleCell':`tabtitle_left_cell'), merge border(left,thin,white)
-		putexcel (`TitleCell':`tabtitle_left_cell'),  border(right,thin,white)
-		putexcel (`TitleCell':`tabtitle_left_cell'),  border(top,thin,white)
-		if("`truncate'"=="") putexcel (`TitleCell'),  font("Arial",10,"black") italic
+		if("`truncate'"=="") _mdt_format (`TitleCell'),  font("Arial",10,"black") italic
+		_mdt_format (`TitleCell':`tabtitle_left_cell'), merge border(left,thin,white)
+		_mdt_format (`TitleCell':`tabtitle_left_cell'),  border(right,thin,white)
+		_mdt_format (`TitleCell':`tabtitle_left_cell'),  border(top,thin,white)
 	*}
 
 	
@@ -629,27 +665,28 @@ forvalues i = 1/`nrows' {
 		quietly _excel_cell_shift, cell("`EndTabCell'") rowinc(1) colinc(0)
 		local source_note_cell_end "`r(cell)'"
 		local source_note="Source: `source'"
-		putexcel (`source_note_cell':`source_note_cell_end'), merge border(left,thin,white)
-		putexcel (`source_note_cell':`source_note_cell_end'),  border(right,thin,white)
-		putexcel (`source_note_cell':`source_note_cell_end'),  border(bottom,thin,white)
-		if ("`truncate'"=="") putexcel `source_note_cell'="`source_note'",  left font("Arial",9,black) italic
+		if ("`truncate'"=="") _mdt_format `source_note_cell'="`source_note'",  left font("Arial",9,black) italic
+		_mdt_format (`source_note_cell':`source_note_cell_end'), merge border(left,thin,white)
+		_mdt_format (`source_note_cell':`source_note_cell_end'),  border(right,thin,white)
+		_mdt_format (`source_note_cell':`source_note_cell_end'),  border(bottom,thin,white)
 		local TabCellEnd_num=`TabCellEnd_num'+1
 	}
 	************ Masked cells footnote
 	local maskedCellNote_cell_num=`TabCellEnd_num'+1
 	local empy_cell_meta="`cell_start'`maskedCellNote_cell_num'"
 	local maskedCellNote="Percentage of masked cells: `per_masked_cells'%"
-	putexcel `empy_cell_meta' = "`maskedCellNote'"
-	putexcel (`empy_cell_meta'),  left font("Arial",9,"red") italic
+	_mdt_format `empy_cell_meta' = "`maskedCellNote'"
+	_mdt_format (`empy_cell_meta'),  left font("Arial",9,"red") italic
 
 	**************** Zero cells footnote
 	local zeroCellNote_cell_num=`TabCellEnd_num'+2
 	local zero_cell_meta="`cell_start'`zeroCellNote_cell_num'"
 	local zeroCellNote="Percentage of cells with value zero(0): `per_zero_cells'%"
-	putexcel `zero_cell_meta' = "`zeroCellNote'"
-	putexcel (`zero_cell_meta'),  left font("Arial",9,"red") italic
+	_mdt_format `zero_cell_meta' = "`zeroCellNote'"
+	_mdt_format (`zero_cell_meta'),  left font("Arial",9,"red") italic
 	restore
 	
+_mdt_format flush
 if ("`onmemory'"=="") quietly _tab_from_mdt_excel, action(save) path(`"`path'"')
 }
 	
