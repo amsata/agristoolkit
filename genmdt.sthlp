@@ -39,6 +39,7 @@
 {marker dimension_options}{...}
 {synopthdr:dimension_options}
 {synoptline}
+{synopt :{opt omit:absentcomb}}Omit each indicator row with {cmd:n_Obs == 0}; abbreviation {cmd:omit}{p_end}
 	
 {syntab:label}
 {synopt :{opt margin:labels}{cmd:(}"[{varname}]@label",...{cmd:)}} Allow to add a label in the margin when parameters are estimated convering all categories of a disaggregation variable specidied in  
@@ -116,6 +117,21 @@ genmdt allow to compute indicators using different estimation parameters like me
 {pmore}
  The result of genmdt after estimation of parameters is a long format layout with the dimensions, the variable to be estimated, the parameter used, the estimation value, the number of non-missing observation used (non-weighted and weighted) the cofficient of variation, the confidence interval bounds , the standard error, etc. (see layout example in {browse "https://amsata.github.io/agristoolkit/getting-started.html#indicators": getting started})
 
+
+{pstd}
+{cmd:Parameter} is retained for each {cmd:Variable}, including rows added for
+labelled dimension categories with no observations. Estimates on those added
+rows remain missing. Each indicator identifier must have one parameter;
+use distinct input variables when estimating the same quantity with different
+parameters. An ambiguous Variable-to-Parameter mapping returns error 459.
+
+{pstd}
+By default, the output retains the full dimension combinations. Specify
+{cmd:omitabsentcomb} (or {cmd:omit}) to drop rows with {cmd:n_Obs == 0} at the end
+of processing. The rule is applied independently to each indicator, so different
+indicators may retain different combinations. A missing estimate alone does not
+remove a row; rows with positive or missing {cmd:n_Obs} are not dropped by this
+option. For example: {cmd:genmdt region, mean(age) total(people) omit}.
 
 {dlgtab:if/in}
 
@@ -196,10 +212,30 @@ by adding the options {opt marginlabels}, {opt units} and {opt indicatornames} a
 {cmd:. genmdt region sex rural , marginlabels("region@USA" "sex@both") mean(highbp diabetes) total(heartatk) integer(heartatk) units("highbp@%" "diabetes@%" "heartatk@people") indicator( "highbp@Proportion of people with high blood pressure" "diabetes@Proportion of people with diabetes" "heartatk@Total number of people who have had a heart attack" )}
 {p_end}
 
+{title:Indicator provenance metadata}
+
+{pstd}Specifications in {opt indicatorname()}, including those built with
+{help add_name}, may include {cmd:{c -(}qxvars{c )-}} followed by source variable
+names and {cmd:{c -(}dst{c )-}} followed by source dataset names or paths.
+These create optional string columns {cmd:qxvars} and {cmd:datasets} in the MDT.
+Values are supplied descriptive text; the variables and files need not exist
+at estimation time. Each field ends at another marker, {cmd:#}, or the end of
+the specification. Markers are removed from the displayed indicator label.
+See {help add_name} for syntax, repeated assignments and validation rules.
+The metadata is applied after estimation in both serial and parallel execution.
+
 {title:Parallel temporary files}
 
 {pstd}
-When {opt setcluster()} enables parallel estimation, each run uses a unique folder
+When {opt setcluster()} is greater than 1, all requested statistics share
+one task list and one parallel launch. Tasks are distributed across workers, with
+the worker count capped at the number of tasks. Both {opt setcluster(0)} and
+{opt setcluster(1)} use serial estimation without initializing parallel workers.
+This parallel path supports
+Stata 14 and later.
+
+{pstd}
+Each parallel run uses a unique folder
 inside Stata's {cmd:c(tmpdir)}. Parallel work files are not written to the working
 directory. Each worker's results are collected by job and worker identifier.
 Successful runs clean up their job files and remove empty run folders.

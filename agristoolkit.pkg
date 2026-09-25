@@ -3,7 +3,7 @@ d 'AGRISTOOLKIT': A toolkit for agricultural surveys and census
 d 
 d processing, analysisng and disseminating agricultural survey and census data
 d 
-d Distribution-Date:   20260824
+d Distribution-Date:   20260924
 d License: Creative Commons Attribution 4.0
 d 
 F _check_excel_path.ado
@@ -23,6 +23,10 @@ F expand_labelled_var.sthlp
 F extract_before_colon.ado
 F extract_macro_elements.ado
 F _agris_parallel_collect.ado
+F _agris_parallel_stats.ado
+F _agris_parallel_queue.ado
+F _agris_parallel_worker.ado
+F _agris_stat_format.ado
 F genMDTbyParam.ado
 F genMDTbyParam.sthlp
 F genmdt.ado
@@ -37,6 +41,7 @@ F setup_anonymization.sthlp
 F svyEstimate.ado
 F svyParallel.ado
 F svyParallelGeo.ado
+F _mdt_format.ado
 F _tab_from_mdt_excel.ado
 F _tab_from_mdt_over.ado
 F _tab_from_mdt_over2.ado

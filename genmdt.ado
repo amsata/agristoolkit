@@ -17,7 +17,10 @@ capture program drop _genmdt_impl
 program define _genmdt_impl
 		
 	syntax [varlist(default=none)] [if], [ MARGINlabels(string asis) mean(string asis) total(string asis) ratio(string asis) median(string asis) HIERGEOvars(string asis) INTeger(string asis) ///
-	GEOMARGINlabel(string) CONDitionals(string asis) subpop(string asis) UNITs(string asis) INDICATORname(string asis) setcluster(integer 0)]
+	GEOMARGINlabel(string) CONDitionals(string asis) subpop(string asis) UNITs(string asis) INDICATORname(string asis) setcluster(integer 0) OMITabsentcomb]
+
+    // Zero or one worker uses the serial path, including validation and setup.
+    if `setcluster'==1 local setcluster = 0
 		
 		
 	
@@ -180,6 +183,8 @@ if(`n_geovars'>0) {
     local naming_ids `naming_ids' `r(extracted)'
     local naming_ids : list uniq naming_ids
     local names_count=0
+    local has_qxvars=0
+    local has_datasets=0
     local rename_sources
     local rename_targets
     foreach specification of local indicatorname {
@@ -189,6 +194,10 @@ if(`n_geovars'>0) {
         local ++names_count
         local name_source`names_count' "`src'"
         local name_label`names_count' `"`r(label)'"'
+        foreach field in qxvars datasets {
+            local name_`field'`names_count' `"`r(`field')'"'
+            if `"`r(`field')'"'!="" local has_`field'=1
+        }
         local selected : list posof "`src'" in naming_ids
         if !`selected' {
             di as error "indicatorname(): `src' is not a selected indicator ID"
@@ -207,6 +216,15 @@ if(`n_geovars'>0) {
                 local rename_sources `rename_sources' `src'
                 local rename_targets `rename_targets' `dst'
             }
+        }
+    }
+    // Metadata columns must not overwrite requested dimensions.
+    local metadata_dimensions `varlist' `hiergeovars'
+    foreach field in qxvars datasets {
+        local collision : list posof "`field'" in metadata_dimensions
+        if `has_`field'' & `collision' {
+            di as error "Metadata output column `field' conflicts with a dimension"
+            exit 198
         }
     }
     local rename_count : list sizeof rename_sources
@@ -364,6 +382,13 @@ keep `if'
 }
 ********************************************************************************
 		
+// Dispatch every requested statistic in one parallel job.
+if `setcluster'>1 {
+    _agris_parallel_stats `varlist', mean(`mean_bis') median(`median_bis') total(`total_bis') ratio(`ratio') ///
+        marginlabels(`marginlabels') hiergeovars(`hiergeovars') geomarginlabel(`geomarginlabel') ///
+        conditionals(`conditionals') subpop(`subpop')
+}
+else {
 tempfile opendata_dst
 
 	if `n_mean'>0 {
@@ -404,10 +429,28 @@ tempfile opendata_dst
 	
 	use `opendata_dst', clear
 
+}
+
 	/* Complete the list of combinations between dimensions and variables */
+	// Parameter is indicator metadata, including for unobserved combinations.
+	preserve
+	keep Variable Parameter
+	drop if missing(Parameter)
+	duplicates drop
+	capture isid Variable
+	if _rc {
+		restore
+		display as error "Each Variable must identify one Parameter; use distinct indicator variables for different parameters."
+		exit 459
+	}
+	tempfile indicator_parameters
+	quietly save `indicator_parameters', replace
+	restore
+
 	preserve
 	if(`n_geovars'==0) _gen_all_dimcomb_dataset `varlist' Variable
 	else _gen_all_dimcomb_dataset geoVar `varlist' Variable
+	quietly merge m:1 Variable using `indicator_parameters', keep(master match) nogen
 	tempfile dimcomb
 	save `dimcomb', replace
 	restore
@@ -446,6 +489,19 @@ tempfile opendata_dst
 		 order `neworder'
 
 		}
+
+        // Apply provenance by original indicator ID before final renaming.
+        // A later explicit value wins; omitted fields do not erase earlier values.
+        foreach field in qxvars datasets {
+            if `has_`field'' {
+                generate strL `field'=""
+                forvalues j=1/`names_count' {
+                    if `"`name_`field'`j''"'!="" {
+                        quietly replace `field'=`"`name_`field'`j''"' if Variable=="`name_source`j''"
+                    }
+                }
+            }
+        }
 
         // Explicit indicatorname() assignments take precedence over category labels.
         if `category_count' {
@@ -545,6 +601,9 @@ tempfile opendata_dst
         }
         drop `original_id'
     }
+
+    // Indicators are independent: remove only rows with zero observations.
+    if "`omitabsentcomb'"!="" quietly drop if n_Obs==0
 
 end
 

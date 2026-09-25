@@ -449,6 +449,15 @@ The new multi-dimensional and {cmd:byindicator} paths restore the original datas
 Legacy behavior is retained, including formatting and return-value limitations.
 {cmd:tab_from_mdt} does not change the estimation logic in {cmd:genmdt}.
 
+{pstd}
+Table writers reuse complete Excel styles to reduce stored formatting records.
+Values and merges are written before final formatting is applied. Formatting
+outside the cells touched by the table is retained. The helper tracks its own
+prior table formatting; it does not import arbitrary pre-existing styles inside
+the target cells. The implementation uses Stata's open workbook handle and has
+been tested on native Stata 15.1 and 16. Error 498 indicates that the required
+open workbook handle is unavailable.
+
 {title:Also see}
 
 {psee}{help genmdt}, {help add_name}, {help erase_after_hash}, {help putexcel}{p_end}
