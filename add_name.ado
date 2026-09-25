@@ -4,7 +4,8 @@ program define add_name, rclass
 syntax anything, [start]
 
 local anything `anything'
-// Structural validation only: generated IDs need not exist yet.
+// Validate label, rename and optional provenance fields before changing the global.
+// Source variables and datasets describe prior calculations and need not exist here.
 _genmdt_name_parse, spec(`"`anything'"')
 local newtext = subinstr(`"`anything'"', "'", "&&&", .)
 local newtext = subinstr(`"`newtext'"', " ", "***", .)
