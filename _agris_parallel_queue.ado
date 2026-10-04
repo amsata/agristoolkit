@@ -30,9 +30,12 @@ program define _agris_parallel_queue
                     }
                 }
             }
+            // With no dimensions/geography, the tuple loop already queued overall.
+            if `ng'>0 | strtrim(`"`dimensions'"')!="" {
             foreach ind of local indicators {
                 local ++taskid
                 post `taskpost' (`taskid') ("") ("`ind'") ("") ("yes") ("`parameter'")
+            }
             }
         }
     }
