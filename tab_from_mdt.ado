@@ -26,6 +26,9 @@ program define _tab_from_mdt_impl, rclass
 
 	syntax varlist(default=none) [if], indicator(string asis) outfile(string) [tabtitle(string asis)  indicatorname(varlist) indvar(varlist) over(string asis) value(varlist) rowtotal(string) by(varlist) DECimal(string) valid(string) replace ONmemory header(string asis) highlight source(string) LABELdim(string asis) SUBPOPvar(string asis) OMITabsentcomb BYIndicator NOPROGress]
 	
+// Population counts are only used by valid(); ignore unused metadata before
+// writer syntax checks attempt to resolve subpopvar() as an existing variable.
+if `"`valid'"' == "" local subpopvar
 // Keep the writers' internal progress flag; expose opt-out at the public command.
 local progress
 if "`over'"!="" & "`noprogress'"=="" local progress progress

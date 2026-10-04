@@ -241,6 +241,7 @@ their existing missing/flag rules. Select indicators/categories whose sum is mea
 {cmd:valid(}{it:string}{cmd:)} requests a population column with this heading.
 {cmd:subpopvar(}{it:varname}{cmd:)} selects its numeric source, normally
 {cmd:N_subPop}. These values are read from the MDT, not computed from row counts.
+When {cmd:valid()} is omitted, {cmd:subpopvar()} is ignored and its variable need not exist.
 
 {pstd}
 With two/three over variables, one population column is written per complete
