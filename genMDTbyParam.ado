@@ -109,6 +109,11 @@ program define _agris_param_impl
 	
 	*generating for all diension
 	preserve 
+	// Without dimensions or geography, the first pass already is the overall result.
+	if (`n_varlist'==0 & `n_geovar'==0) {
+		quietly use `dataset_dims', clear
+	}
+	else {
 	qui findfile svyParallel.ado
 	qui return list
 	local mypath "`r(fn)'"
@@ -136,6 +141,7 @@ program define _agris_param_impl
         tempfile dataset_alldims
         quietly save `dataset_alldims', replace
         quietly append using `dataset_dims'
+	}
 	}
 
 	quietly {	
