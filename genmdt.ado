@@ -116,10 +116,24 @@ if(`n_geovars'>0) {
 }
 
 	
+    // Resolve every source list against the input data before generating dummies.
+    foreach statistic in mean total median {
+        quietly expand_varlist "``statistic''"
+        local `statistic' `r(expanded)'
+    }
+    local selected_sources
+    foreach statistic in mean total median {
+        local conflict : list selected_sources & `statistic'
+        if "`conflict'"!="" {
+            display as error "Variables selected under different parameters: `conflict'. Use distinct indicator variables."
+            exit 459
+        }
+        local selected_sources `selected_sources' ``statistic''
+    }
+
     local category_count=0
     foreach statistic in mean total {
-        quietly expand_varlist "``statistic''"
-        local requested `r(expanded)'
+        local requested ``statistic''
         quietly expand_labelled_var "`requested'"
         local `statistic' `r(expanded)'
         local ng=r(n_generated)
@@ -132,8 +146,7 @@ if(`n_geovars'>0) {
         }
     }
 
-	qui expand_varlist "`median'"
-	local median `r(expanded)'
+
 	
 	if(`n_integer'>0){
 		qui expand_varlist "`integer'"
@@ -180,7 +193,18 @@ if(`n_geovars'>0) {
     local naming_ratio=subinstr(`"`naming_ratio'"',"(","",.)
     local naming_ratio=subinstr(`"`naming_ratio'"',")","",.)
     quietly extract_before_colon "`naming_ratio'"
-    local naming_ids `naming_ids' `r(extracted)'
+    local ratio_ids `r(extracted)'
+    // Ratio operands may reuse inputs; compare the resulting indicator IDs only.
+    local selected_ids
+    foreach statistic in mean total median ratio_ids {
+        local conflict : list selected_ids & `statistic'
+        if "`conflict'"!="" {
+            display as error "Indicator IDs selected under different parameters: `conflict'. Use distinct indicator IDs."
+            exit 459
+        }
+        local selected_ids `selected_ids' ``statistic''
+    }
+    local naming_ids `naming_ids' `ratio_ids'
     local naming_ids : list uniq naming_ids
     local names_count=0
     local has_qxvars=0
@@ -566,7 +590,11 @@ tempfile opendata_dst
 			qui replace UL_confInt=UL_confInt*100 if Unit=="%"
 			qui replace standError=standError*100 if Unit=="%"
 
-			qui gen Value_str=cond(missing(Value),"",string(Value, "%15.5f"))
+		 order `neworder'
+		}
+
+		// Format estimates and apply integer() independently of units().
+		qui gen Value_str=cond(missing(Value),"",string(Value, "%15.5f"))
 
 			
 			if(`n_integer'>0){
@@ -581,8 +609,6 @@ tempfile opendata_dst
 			}
 			
 			
-		 order `neworder'
-		}
 		
 
 	****************************************************************************

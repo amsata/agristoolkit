@@ -108,6 +108,15 @@ For example, {cmd:}{it:marginlabel("SEX@Both sex")}{cmd:} allow to estimate indi
 In case of hierarchical geographic dimensions, the dimensions should be specidied in the optons hiergeovars intead of varlist to account for this specifity
 
 
+{pstd}
+{cmd:mean()}, {cmd:total()} and {cmd:median()} accept asterisk wildcards mixed
+with ranges and names, for example {cmd:mean(v1-v3 TOT_* REND)}. Names are
+case-sensitive. Each list is deduplicated in first-occurrence order, including
+lists without wildcards. Unmatched wildcard patterns return error 111.
+Selections shared by different parameters are rejected before estimation with
+error 459; use distinct variables. Ratio operands may reuse source variables,
+but ratio indicator IDs must not collide with other parameters' indicator IDs.
+
 {dlgtab:Parameters}
 
 {phang}
