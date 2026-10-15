@@ -284,3 +284,10 @@ precision for selected indicators. Numeric Value has a single column-wide displa
 When exporting with {cmd:tab_from_mdt}, use {cmd:value(Value)} if more precision
 is required than was retained in {cmd:Value_str}; table {cmd:digits()} independently
 controls Excel display. Example: {cmd:genmdt region, mean(income) digits(3)}.
+
+{pstd}
+In {cmd:ratio()}, spaces, tabs and line breaks around {cmd::} and {cmd:/}
+are accepted. For example, {cmd:ratio(IRRI_PCT : irrigated_area / total_area)}
+works with {cmd:units("*_PCT@%")}. Whitespace is normalized before indicator
+metadata and wildcard units are processed; separate ratio definitions remain
+separate. Parenthesized ratio definitions are also accepted.

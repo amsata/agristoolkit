@@ -191,6 +191,17 @@ if(`n_geovars'>0) {
 		exit 480
 	}
 	
+    // Normalize ratios before metadata validation and wildcard-unit expansion.
+    // Keep whitespace between definitions while joining each ID and operand pair.
+    if `n_ratio'>0 {
+        local ratio=ustrregexra(`"`ratio'"',"\s*:\s*",":")
+        local ratio=ustrregexra(`"`ratio'"',"\s*/\s*","/")
+        local ratio=subinstr(`"`ratio'"',"(","",.)
+        local ratio=subinstr(`"`ratio'"',")","",.)
+        local ratio=strtrim(ustrregexra(`"`ratio'"',"\s+"," "))
+        local n_ratio : list sizeof ratio
+    }
+
 	local all_variable "`mean' `total' `ratio' `median'"
     // Resolve wildcard units only against requested indicators, never other data.
     // Expand in place so existing last-assignment-wins semantics are retained.
@@ -202,7 +213,7 @@ if(`n_geovars'>0) {
             local unit_text=substr(`"`specification'"',`at'+1,.)
             local matches=0
             foreach candidate of local all_variable {
-                local id `candidate'
+                local id `"`candidate'"'
                 local colon=strpos(`"`id'"',":")
                 if `colon' local id=substr(`"`id'"',1,`colon'-1)
                 local id=subinstr(`"`id'"',"(","",.)
