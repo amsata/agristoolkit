@@ -4,7 +4,7 @@ cap program drop genmdt
 program define genmdt
     // Commit the MDT on success; restore the survey data on validation/error.
     preserve
-    capture noisily _genmdt_impl `0'
+    capture noisily _genmdt_io `0'
     local rc=_rc
     if `rc' {
         restore
@@ -13,11 +13,45 @@ program define genmdt
     restore, not
 end
 
+capture program drop _genmdt_io
+program define _genmdt_io
+    syntax [anything(everything)], [SAVing(string asis) *]
+    local rest `"`anything'"'
+    local command
+    while `"`rest'"'!="" {
+        gettoken token rest : rest, bind quotes
+        if `"`token'"'=="using" {
+            _genmdt_load using `rest'
+            continue, break
+        }
+        local command `"`command' `token'"'
+    }
+    _genmdt_impl `command', `options'
+    if `"`saving'"'!="" _genmdt_save using `saving'
+end
+
+capture program drop _genmdt_load
+program define _genmdt_load
+    syntax using/
+    quietly use `"`using'"', clear
+end
+
+capture program drop _genmdt_save
+program define _genmdt_save
+    syntax using/ [, REPLACE]
+    save `"`using'"', `replace'
+end
+
 capture program drop _genmdt_impl
 program define _genmdt_impl
 		
 	syntax [varlist(default=none)] [if], [ MARGINlabels(string asis) mean(string asis) total(string asis) ratio(string asis) median(string asis) HIERGEOvars(string asis) INTeger(string asis) ///
-	GEOMARGINlabel(string) CONDitionals(string asis) subpop(string asis) UNITs(string asis) INDICATORname(string asis) setcluster(integer 0) OMITabsentcomb]
+	GEOMARGINlabel(string) CONDitionals(string asis) subpop(string asis) UNITs(string asis) INDICATORname(string asis) setcluster(integer 0) OMITabsentcomb DIGits(integer 5)]
+
+    if !inrange(`digits',0,15) {
+        di as error "digits() must be an integer between 0 and 15"
+        exit 198
+    }
 
     // Zero or one worker uses the serial path, including validation and setup.
     if `setcluster'==1 local setcluster = 0
@@ -594,7 +628,10 @@ tempfile opendata_dst
 		}
 
 		// Format estimates and apply integer() independently of units().
-		qui gen Value_str=cond(missing(Value),"",string(Value, "%15.5f"))
+		local display_width = max(15, `digits'+2)
+        local estimate_format "%`display_width'.`digits'f"
+        format Value `estimate_format'
+        qui gen Value_str=cond(missing(Value),"",string(Value, "`estimate_format'"))
 
 			
 			if(`n_integer'>0){
@@ -639,3 +676,4 @@ program ParseSubpopOption, sclass
 	sreturn local varlist `varlist'
 	sreturn local if `"`if'"'
 end
+

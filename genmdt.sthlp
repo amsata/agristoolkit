@@ -5,15 +5,35 @@
 {title:Syntax}
 
 {phang2}
-{cmd:genmdt} [{help genmdt##varlist:{it:varlist}}] [{cmd:,}
+{cmd:genmdt} [{help genmdt##varlist:{it:varlist}}] [{it:if}] [{cmd:using} {it:filename}] [{cmd:,}
            {help genmdt##svy_options:{it: svy_options}}
 		   {help genmdt##dimension_options:{it: dimension_options}}
 		   {help genmdt##formating_options:{it: formating_options}}] {cmd::} {it:command}
 
 
+{title:Input and output datasets}
+
+{pstd}
+With {cmd:using}, genmdt loads the specified survey dataset before applying its
+existing dimension, indicator, survey-design and {cmd:if} checks. The input file
+must contain the required variables and saved {cmd:svyset} settings. Without
+{cmd:using}, genmdt uses the dataset currently in memory.
+
+{pstd}
+{cmd:saving("filename" [, replace])} saves the completed MDT as a Stata dataset.
+The MDT remains in memory on success, whether or not {cmd:saving()} is specified.
+Use {cmd:replace} inside {cmd:saving()} to overwrite an existing output file.
+If loading, estimation or saving fails, the dataset originally in memory is
+restored. This does not guarantee atomic replacement of a disk file if a write
+fails midway.
+
+{phang2}
+{cmd:genmdt region using "holdings.dta", mean(SEX_PROP) saving("results.dta", replace)}
+
 {marker varlist}{...}
 {synopthdr:varlist}
 {synoptline}
+{synopt :{opt dig:its(#)}}decimal places for Value display and Value_str; default 5, range 0–15{p_end}
 {synopt :{opt varlist}{cmd:(}[{varlist}]{cmd:)}}identify a subpopulation{p_end}
 
 {marker svy_options}{...}
@@ -253,3 +273,14 @@ The original working directory is restored after the run.
 
 {marker reference}{...}
 {title:Reference}
+
+{pstd}
+{cmd:digits(}{it:#}{cmd:)} accepts an integer from 0 through 15 (default 5).
+After percentage conversions, it sets the display format of numeric {cmd:Value}
+and the decimal places used to create {cmd:Value_str}. It does not round stored
+numeric estimates or change confidence intervals or standard errors.
+{cmd:integer()} retains its existing rounding behavior and overrides the text
+precision for selected indicators. Numeric Value has a single column-wide display format.
+When exporting with {cmd:tab_from_mdt}, use {cmd:value(Value)} if more precision
+is required than was retained in {cmd:Value_str}; table {cmd:digits()} independently
+controls Excel display. Example: {cmd:genmdt region, mean(income) digits(3)}.

@@ -42,6 +42,7 @@ F svyEstimate.ado
 F svyParallel.ado
 F svyParallelGeo.ado
 F _mdt_format.ado
+F _tab_from_mdt_outfile.ado
 F _tab_from_mdt_excel.ado
 F _tab_from_mdt_over.ado
 F _tab_from_mdt_over2.ado
