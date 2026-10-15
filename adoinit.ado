@@ -1,7 +1,7 @@
 *! adoinit 1.0.1 17sep2026
 program define adoinit, rclass
     version 13
-    syntax, PATH(string) [NAME(string) REPLACE AGRISfrom(string) PARALLELfrom(string) SSCfrom(string)]
+    syntax, PATH(string) [NAME(string) REPLACE AGRISfrom(string) PARALLELfrom(string) SSCfrom(string) ELABELfrom(string)]
     if `"`name'"'=="" local name ado
     if inlist(`"`name'"', ".", "..") | regexm(`"`name'"', "[/\\:*?<>|]") {
         di as error "name() must be a single folder name, not a path"
@@ -58,7 +58,7 @@ program define adoinit, rclass
     local rc 0
     nobreak {
         capture noisily break _adoinit_install, target(`"`target'"') ///
-            agrisfrom(`"`agrisfrom'"') parallelfrom(`"`parallelfrom'"') sscfrom(`"`sscfrom'"')
+            agrisfrom(`"`agrisfrom'"') parallelfrom(`"`parallelfrom'"') sscfrom(`"`sscfrom'"') elabelfrom(`"`elabelfrom'"')
         local rc = _rc
         quietly net set ado `"`old_ado'"'
     }
@@ -73,11 +73,14 @@ end
 
 program define _adoinit_install
     version 13
-    syntax, TARGET(string) AGRISfrom(string) PARALLELfrom(string) [SSCfrom(string)]
+    syntax, TARGET(string) AGRISfrom(string) PARALLELfrom(string) [SSCfrom(string) ELABELfrom(string)]
     quietly net set ado `"`target'"'
     noisily net install agristoolkit, from(`"`agrisfrom'"') replace
     foreach package in tuples elabel confirmdir {
-        if `"`sscfrom'"'=="" noisily ssc install `package', replace
+        if "`package'"=="elabel" & `"`elabelfrom'"'!="" {
+            noisily net install elabel, from(`"`elabelfrom'"') replace
+        }
+        else if `"`sscfrom'"'=="" noisily ssc install `package', replace
         else noisily net install `package', from(`"`sscfrom'"') replace
     }
     noisily net install parallel, from(`"`parallelfrom'"') replace
