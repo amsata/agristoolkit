@@ -51,11 +51,14 @@ not part of this syntax. Options follow the comma after the row variables.
 {synopt:{cmd:tabtitle(}{it:string}{cmd:)}}table title; supports an indicator-title template with {cmd:byindicator}{p_end}
 {synopt:{cmd:header(}{it:string}{cmd:)}}additional heading{p_end}
 {synopt:{cmd:labeldim(}{it:strings}{cmd:)}}one quoted heading per row variable{p_end}
+{synopt:{cmd:hidenote}}hide the masked-cell and zero-cell percentage notes{p_end}
 {synopt:{cmd:rowtotal(}{it:string}{cmd:)}}add a total column with this heading; meaning depends on layout{p_end}
 {synopt:{cmd:valid(}{it:string}{cmd:)}}population-column heading where supported{p_end}
 {synopt:{cmd:subpopvar(}{it:varname}{cmd:)}}population variable; default {cmd:N_subPop} where supported{p_end}
+{synopt:{opt dig:its(#)}}decimal places for indicators and numeric row totals; default 2, range 0–15{p_end}
 {synopt:{opt dec:imal(string)}}display decimal separator; default period{p_end}
 {synopt:{cmd:source(}{it:string}{cmd:)}}source note below each table{p_end}
+{synopt:{opt hide:dims}}hide row-dimension columns; incompatible with {cmd:labeldim()}{p_end}
 {synopt:{opt highlight}}emphasize the last displayed data row{p_end}
 {syntab:Workbook management}
 {synopt:{opt replace}}replace the workbook when starting output{p_end}
@@ -183,8 +186,8 @@ the combinations retained. Without {cmd:over()}, or with only one over variable,
 {phang}
 {cmd:tabtitle(}{it:string}{cmd:)} supplies a title. For {cmd:byindicator}, the
 default is the indicator label before the first hash. The literal placeholder
-{cmd:{c -(}title{c )-}} in a supplied title is replaced for each indicator; for
-example, {cmd:tabtitle("Results: {c -(}title{c )-}")}.
+{cmd:{c -(}label{c )-}} in a supplied title is replaced for each indicator; for
+example, {cmd:tabtitle("Results: {c -(}label{c )-}")}.
 The legacy separate-indicator layout also supports this placeholder.
 It is not expanded for a combined two-/three-dimensional table.
 
@@ -211,10 +214,10 @@ population and derived-total columns. Blank/nonnumeric values count as masked.
 calculate a national total; select/order the MDT appropriately.
 
 {phang}
-{cmd:decimal(}{it:string}{cmd:)} replaces the decimal separator in displayed value
-strings, for example {cmd:decimal(",")}. It is not a request for a number of
-decimal places. In the two-/three-dimensional writer, converted strings may be
-stored as Excel text; calculated totals retain their numeric Excel formatting.
+{cmd:decimal(}{it:string}{cmd:)} is retained for compatibility with the legacy
+separator option. Separator replacement is not active in the current writers.
+Use {cmd:digits()} to select the number of decimal places; Excel's locale controls
+how numeric separators are displayed.
 
 {dlgtab:Totals and population columns}
 
@@ -232,15 +235,21 @@ category pair/triple, excluding the population column. Do not sum across categor
 levels. With {cmd:byindicator}, each numeric total repeats its one indicator.{p_end}
 
 {pstd}
-For two/three over variables, a nonempty nonnumeric component produces
-{cmd:[-]} in its total. Blank components are omitted; a combination with no
-numeric or flagged components produces {cmd:[:]}, not zero. Legacy writers retain
-their existing missing/flag rules. Select indicators/categories whose sum is meaningful.
+For all layouts, {cmd:[:]} means no observations and contributes zero without
+flagging the total. If all components are {cmd:[:]}, the total is numeric zero.
+Any other nonempty nonnumeric component, including {cmd:[u]}, {cmd:125[u]},
+{cmd:0[w]} or {cmd:[-]}, produces {cmd:[-]} in its total. This total is grey and
+right-aligned. Ordinary numeric zero remains usable. Each total considers only
+its contributing cells; other category blocks or indicator tables are unaffected.
+Blank components retain their existing handling; a wholly blank combination in
+the multidimensional writer produces {cmd:[:]}.
+Select indicators/categories whose sum is meaningful.
 
 {phang}
 {cmd:valid(}{it:string}{cmd:)} requests a population column with this heading.
 {cmd:subpopvar(}{it:varname}{cmd:)} selects its numeric source, normally
 {cmd:N_subPop}. These values are read from the MDT, not computed from row counts.
+Population cells display rounded integers with thousands separators and no decimal places.
 When {cmd:valid()} is omitted, {cmd:subpopvar()} is ignored and its variable need not exist.
 
 {pstd}
@@ -268,6 +277,21 @@ starting row, and starting column, for example
 {cmd:outfile("./report.xlsx", "Results", 4, C)}. Defaults are worksheet
 {cmd:TABLES}, row 1, column A. Specify intervening arguments when supplying a later
 argument. Include a directory component in the filename, for example "./report.xlsx" or an absolute path. Relative paths are relative to Stata's working directory.
+
+{phang}
+Only trailing arguments may be omitted. For example, {cmd:outfile("./report.xlsx")}
+uses all placement defaults, while {cmd:outfile("./report.xlsx", "Results", 4)}
+starts in column A. Empty arguments and misplaced row or column arguments are
+rejected with error 198 before opening the workbook. A numeric sheet name is
+allowed; arguments are never automatically rearranged. Quote filenames and sheet
+names containing commas.
+
+{phang}
+The starting row must be an integer from 1 to 1048576, and the starting column
+must contain letters from A to XFD. Lowercase column letters are accepted.
+These checks validate the starting coordinate only; they do not guarantee that
+the complete table fits on the worksheet or extend the column limits of the
+underlying table writer.
 
 {phang}
 {cmd:replace} replaces the workbook, not just a table or worksheet. Without it,
@@ -370,7 +394,7 @@ for this development checkout use:
 {pstd}Separate compact tables with a title template and a source note:{p_end}
 {cmd}
     tab_from_mdt region, indicator(b a) over(rural sex agegroup) byindicator ///
-        omitabsentcomb tabtitle("Results: {c -(}title{c )-}") ///
+        omitabsentcomb tabtitle("Results: {c -(}label{c )-}") ///
         source("Illustrative data") ///
         outfile("./example_separate.xlsx", "Results", 3, C) replace
 {txt}
@@ -403,7 +427,8 @@ That local development folder is not required for installed-package use.
 {synopt:{cmd:r(n_tables)}}number of tables; returned only with {cmd:byindicator}{p_end}
 {syntab:Macros}
 {synopt:{cmd:r(tab_start_cell_letter)}}starting Excel column{p_end}
-{synopt:{cmd:r(tab_end_cell_letter)}}column coordinate for placing subsequent output{p_end}
+{synopt:{cmd:r(tab_end_cell_letter)}}legacy placement coordinate, including existing spacing{p_end}
+{synopt:{cmd:r(tab_next_cell_letter)}}first column immediately after the table, without a separator{p_end}
 
 {pstd}
 These are placement coordinates, not the occupied cell range. For the two-/three-
@@ -462,3 +487,64 @@ open workbook handle is unavailable.
 {title:Also see}
 
 {psee}{help genmdt}, {help add_name}, {help erase_after_hash}, {help putexcel}{p_end}
+
+{pstd}
+{cmd:digits(}{it:#}{cmd:)} controls Excel display precision for numeric indicator
+values and numeric row totals in all layouts. The default is 2; specify an integer
+from 0 through 15. It changes the number format, not stored values or calculations.
+Population columns requested by {cmd:valid()} remain integers. Text flags retain
+their existing appearance. Example: {cmd:digits(1)} displays one decimal place.
+
+{pstd}
+Empty or whitespace-only indicator labels fall back to the indicator ID in
+{cmd:Variable}, or the variable supplied in {cmd:indvar()}. This applies to
+{cmd:IndicatorName} and a custom {cmd:indicatorname()} variable. Nonempty labels
+are preserved, and the caller's dataset is restored after table generation.
+
+{pstd}
+{cmd:hidedims} (abbreviated {cmd:hide}) omits row-dimension columns from Excel.
+The dimension variables still determine grouping and row order. Titles, headers,
+source notes, indicator values, and supported population and total columns remain.
+Combining {cmd:hidedims} with {cmd:labeldim()} returns error 198 before opening Excel.
+
+{pstd}
+In both modes, {cmd:r(tab_next_cell_letter)} gives the immediately adjacent column:
+a table ending at H returns I. For vertically stacked tables it follows the widest
+block. The existing {cmd:r(tab_end_cell_letter)} behavior is preserved, including
+its spacing and legacy handling of unequal-width blocks. Use the new return to
+place a subsequent block without a blank separator, and save it in a local macro
+before running another command. Matching row categories, ordering and header
+heights between manually assembled blocks is the user's responsibility.
+
+{title:Selecting indicators with a regular expression}
+
+{pstd}
+{cmd:indicator(regex="HLD_HAS")} selects indicator IDs containing HLD_HAS.
+Patterns use Stata's {cmd:regexm()} syntax and are case-sensitive; use anchors,
+for example {cmd:indicator(regex="^HLD_HAS_")}, to restrict matches to a prefix.
+Matching uses {cmd:Variable}, or the variable specified by {cmd:indvar()}, within
+the observations selected by {cmd:if}. Matched IDs are distinct and sorted.
+Expansion occurs before layout selection and works with {cmd:over()},
+{cmd:by()} and {cmd:byindicator}. An empty pattern or no matching indicators
+returns error 198 before the workbook is opened.
+
+{title:Indicator title placeholders and notes}
+
+{pstd}
+With {cmd:byindicator}, {cmd:tabtitle("Table: {c -(}label{c )-}")}
+inserts each indicator's display label into its table title. The placeholder
+is now {cmd:{c -(}label{c )-}}; update templates that used
+{cmd:{c -(}title{c )-}}. The same placeholder is supported by the
+single-indicator writer used by {cmd:by()}.
+
+{pstd}
+{cmd:hidenote} suppresses the percentage-of-masked-cells and
+percentage-of-zero-cells notes for every table. Source text remains visible.
+Without this option, notes retain their existing behavior.
+
+{pstd}
+Hiding notes removes two rows per table from vertical placement.
+{cmd:r(tab_end_line)} adjusts accordingly, and subsequent indicator tables
+start earlier. Column returns, including {cmd:r(tab_end_cell_letter)} and
+{cmd:r(tab_next_cell_letter)}, are unchanged because table width is unchanged.
+The existing {cmd:by()} starting-row return convention remains unchanged.

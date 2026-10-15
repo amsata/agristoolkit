@@ -2,8 +2,12 @@ cap program drop odp_tab3
 program define odp_tab3, rclass
 		
 		 **  tablabelvar(varlist) indvar(varlist)
-		*syntax [varlist(default=none)] [if], [  tabtitle(string asis) outfile(string) indicator(string asis) indicatorname(varlist) indvar(varlist) value(varlist)]
-	syntax [varlist(default=none)] [if] , [tabtitle(string asis) header(string asis) outfile(string) indicator(string) indvar(varlist) value(varlist) by(varlist) rowtotal(string) decimal(string asis) indicatorname(varlist) replace ONmemory has_over highlight source(string) LABELdim(string asis) SUBPOPvar(varname) truncate valid(string) BYIndicator over(varlist max=3) OMITabsentcomb PROGress]
+		*syntax [varlist(default=none)] [if], [  tabtitle(string asis) outfile(string asis) indicator(string asis) indicatorname(varlist) indvar(varlist) value(varlist)]
+	syntax [varlist(default=none)] [if] , [tabtitle(string asis) header(string asis) outfile(string asis) indicator(string) indvar(varlist) value(varlist) by(varlist) rowtotal(string) decimal(string asis) DIGits(integer 2) HIDEdim indicatorname(varlist) replace ONmemory has_over highlight source(string) LABELdim(string asis) SUBPOPvar(varname) truncate valid(string) BYIndicator over(varlist max=3) OMITabsentcomb PROGress HIDENOTE]
+    if !inrange(`digits',0,15) {
+        di as error "digits() must be an integer between 0 and 15"
+        exit 198
+    }
 	
     // New orchestration branch. The original by() branch below is unchanged.
     if "`byindicator'" != "" {
@@ -57,7 +61,7 @@ program define odp_tab3, rclass
             local title`i' `"`name'"'
             if `"`tabtitle'"'!="" {
                 local template `tabtitle'
-                local title`i' : subinstr local template "{title}" `"`name'"', all
+                local title`i' : subinstr local template "{label}" `"`name'"', all
             }
             quietly count if `indvar'==`"`ind'"' & (missing(`key') | `duplicates'>1)
             if r(N) {
@@ -67,11 +71,11 @@ program define odp_tab3, rclass
         }
         tempfile selected
         quietly save `selected'
-        tokenize `"`outfile'"', parse(",")
-        local path = trim(`"`1'"')
-        local sheet = trim(`"`3'"')
-        local next = trim(`"`5'"')
-        local col = upper(trim(`"`7'"'))
+quietly _tab_from_mdt_outfile, spec(`"`outfile'"')
+    local path `"`r(path)'"'
+    local sheet `"`r(sheet)'"'
+    local next = r(row)
+    local col "`r(column)'"
         if `"`sheet'"'=="" local sheet TABLES
         if "`next'"=="" local next 1
         if "`col'"=="" local col A
@@ -97,9 +101,9 @@ program define odp_tab3, rclass
             }
             `writer' `varlist', indicator(`ind') indvar(`indvar') indicatorname(`indicatorname') ///
                 value(`value') `columnopt' outfile("`writerpath'", "`sheet'", `next', `col') ///
-                tabtitle(`"`title`i''"') header(`header') rowtotal(`rowtotal') decimal(`decimal') ///
+                tabtitle(`"`title`i''"') header(`header') rowtotal(`rowtotal') decimal(`decimal') digits(`digits') `hidedim' ///
                 valid(`valid') subpopvar(`subpopvar') `replace' onmemory `highlight' `progress' ///
-                source(`source') labeldim(`labeldim')
+                source(`source') `hidenote' labeldim(`labeldim')
             local next = r(tab_end_line)
             local endcol "`r(tab_end_cell_letter)'"
             // Legacy direct writers return two columns less spacing than the public command.
@@ -132,41 +136,44 @@ program define odp_tab3, rclass
 
 	***extract path, sheet name and start cell num from outfile
     // Strip leading/trailing whitespace
-    local outfile = trim("`outfile'")
+quietly _tab_from_mdt_outfile, spec(`"`outfile'"')
+    local path `"`r(path)'"'
+    local sheet_name `"`r(sheet)'"'
+    local cell_start_num = r(row)
 
-	local size_indicator: list sizeof indicator
-    // Remove parentheses if present
-   * local outfile = subinstr("`outfile'", "(", "", .)
-   * local outfile = subinstr("`outfile'", ")", "", .)
-
-    // Split by comma
-    tokenize "`outfile'", parse(",")
-
-    // Assign values
-    local path = trim("`1'")
-    local sheet_name = trim("`3'")
-    local cell_start_num   = trim("`5'")
+ local size_indicator: list sizeof indicator
 	
 	if ("`sheet_name'"=="") {
 	local sheet_name "TABLES"
 	local cell_start_num=1
 	}
 	
+	local widest_next_width=0
+	local widest_next
 	local counter=1
 	foreach ind of local indicator {
 	if (`counter'==1) {
-		odp_tab2 `varlist' `if' ,  outfile(`outfile') indicator(`ind') indvar(`indvar') value(`value') by(`by') rowtotal(`rowtotal') decimal(`decimal') indicatorname(`indicatorname') `replace' `onmemory' `highlight' `has_over' source(`source') labeldim(`labeldim') subpopvar(`subpopvar') `truncate' valid(`valid') header(`header') tabtitle(`tabtitle')
+		odp_tab2 `varlist' `if' ,  outfile(`outfile') indicator(`ind') indvar(`indvar') value(`value') by(`by') rowtotal(`rowtotal') decimal(`decimal') digits(`digits') `hidedim' indicatorname(`indicatorname') `replace' `onmemory' `highlight' `has_over' source(`source') `hidenote' labeldim(`labeldim') subpopvar(`subpopvar') `truncate' valid(`valid') header(`header') tabtitle(`tabtitle')
 		
 		local counter=`counter'+1
 	}
 	else {
-		if(`size_indicator'==`counter')	odp_tab2 `varlist' `if' ,  outfile("`path'", "`sheet_name'",  `r(tab_end_line)',`r(tab_start_cell_letter)') indicator(`ind') indvar(`indvar') value(`value') by(`by') rowtotal(`rowtotal') decimal(`decimal') indicatorname(`indicatorname') `onmemory' `highlight' `has_over' source(`source') labeldim(`labeldim') subpopvar(`subpopvar') `truncate' valid(`valid') header(`header') tabtitle(`tabtitle')
+		if(`size_indicator'==`counter')	odp_tab2 `varlist' `if' ,  outfile("`path'", "`sheet_name'",  `r(tab_end_line)',`r(tab_start_cell_letter)') indicator(`ind') indvar(`indvar') value(`value') by(`by') rowtotal(`rowtotal') decimal(`decimal') digits(`digits') `hidedim' indicatorname(`indicatorname') `onmemory' `highlight' `has_over' source(`source') `hidenote' labeldim(`labeldim') subpopvar(`subpopvar') `truncate' valid(`valid') header(`header') tabtitle(`tabtitle')
 		
-		else odp_tab2 `varlist' `if' ,  outfile("`path'", "`sheet_name'",  `r(tab_end_line)',`r(tab_start_cell_letter)') indicator(`ind') indvar(`indvar') value(`value') by(`by') rowtotal(`rowtotal') decimal(`decimal') indicatorname(`indicatorname') on `highlight' `has_over' source(`source') labeldim(`labeldim') subpopvar(`subpopvar') `truncate' valid(`valid') header(`header') tabtitle(`tabtitle')
+		else odp_tab2 `varlist' `if' ,  outfile("`path'", "`sheet_name'",  `r(tab_end_line)',`r(tab_start_cell_letter)') indicator(`ind') indvar(`indvar') value(`value') by(`by') rowtotal(`rowtotal') decimal(`decimal') digits(`digits') `hidedim' indicatorname(`indicatorname') on `highlight' `has_over' source(`source') `hidenote' labeldim(`labeldim') subpopvar(`subpopvar') `truncate' valid(`valid') header(`header') tabtitle(`tabtitle')
 		
-	}  
-	
 	}
+    local direct_next "`r(tab_end_cell_letter)'"
+    local direct_width=0
+    forvalues j=1/`=length("`direct_next'")' {
+        local direct_width=26*`direct_width'+strpos("ABCDEFGHIJKLMNOPQRSTUVWXYZ",substr("`direct_next'",`j',1))
+    }
+    if `direct_width'>`widest_next_width' {
+        local widest_next_width=`direct_width'
+        local widest_next "`direct_next'"
+    }
+    }
+return local tab_next_cell_letter "`widest_next'"
 return scalar tab_start_line=`r(tab_start_line)'
 return local tab_start_cell_letter= "`r(tab_start_cell_letter)'"
 return local tab_end_cell_letter="`r(tab_end_cell_letter)'"

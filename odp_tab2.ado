@@ -3,8 +3,14 @@ program define odp_tab2, rclass
 
 		
 		 **  tablabelvar(varlist) indvar(varlist)
-		*syntax [varlist(default=none)] [if], [  tabtitle(string asis) outfile(string) indicator(string asis) indicatorname(varlist) indvar(varlist) value(varlist)]
-	syntax [varlist(default=none)] [if] , [tabtitle(string asis) header(string asis) outfile(string) indicator(string) indvar(varlist) value(varlist) by(varlist) rowtotal(string) decimal(string asis) indicatorname(varlist) replace ONmemory has_over highlight source(string) LABELdim(string asis) SUBPOPvar(varname) truncate valid(string) PROGress]
+		*syntax [varlist(default=none)] [if], [  tabtitle(string asis) outfile(string asis) indicator(string asis) indicatorname(varlist) indvar(varlist) value(varlist)]
+	syntax [varlist(default=none)] [if] , [tabtitle(string asis) header(string asis) outfile(string asis) indicator(string) indvar(varlist) value(varlist) by(varlist) rowtotal(string) decimal(string asis) DIGits(integer 2) HIDEdim indicatorname(varlist) replace ONmemory has_over highlight source(string) LABELdim(string asis) SUBPOPvar(varname) truncate valid(string) PROGress HIDENOTE]
+    if !inrange(`digits',0,15) {
+        di as error "digits() must be an integer between 0 and 15"
+        exit 198
+    }
+    local indicator_format "#,##0"
+    if `digits'>0 local indicator_format = "#,##0." + substr("000000000000000",1,`digits')
 
 local n_if: list sizeof if
 local size_varlist:list sizeof varlist
@@ -102,7 +108,7 @@ foreach v of local indicator {
      local ind_name `"`=tablabel[1]'"'
 	if (`size_tabtitle'>0) {
 	*local ind_name_clean = subinstr(`"`ind_name'"', `"""', "", .)
-		local tabtitle : subinstr local tabtitle "{title}" "`ind_name'", all
+		local tabtitle : subinstr local tabtitle "{label}" "`ind_name'", all
 		
 	}
 	
@@ -113,14 +119,11 @@ if (`size_tabtitle'==0) di as result `"Generating table: {cmd:`ind_name'}..."'
 
 ***extract path, sheet name and start cell num from outfile
     // Strip leading/trailing whitespace
-    local outfile = trim("`outfile'")
-    // Split by comma
-    tokenize "`outfile'", parse(",")
-    // Assign values
-    local path = trim("`1'")
-    local sheet_name = trim("`3'")
-    local cell_start_num   = trim("`5'")
-	local cell_start   = trim("`7'") // Assign values
+quietly _tab_from_mdt_outfile, spec(`"`outfile'"')
+    local path `"`r(path)'"'
+    local sheet_name `"`r(sheet)'"'
+    local cell_start_num = r(row)
+    local cell_start "`r(column)'"
 	
 	if ("`sheet_name'"=="") local sheet_name "TABLES"
 	if ("`cell_start_num'"=="") local cell_start_num=1
@@ -205,6 +208,10 @@ local cell_end "`cell_start'`end_num'"
 *===============================================================================
 /*======================= Write the data in excel =============================*/
 
+if "`hidedim'"!="" {
+    capture drop `varlist'
+    local size_varlist=0
+}
 unab vars:*
 local nrows = _N
 local ncols : word count `vars'
@@ -294,9 +301,11 @@ if ("`rowtotal'"!="") {
 	unab all_vars: *
 	local indvar2:list all_vars-varlist
 
-	foreach v of local indvar2 {
-	gen `v'_bis=`v'
-	replace `v'_bis="0" if `v'_bis=="0[w]"
+    tempvar total_flag
+    gen byte `total_flag'=0
+    foreach v of local indvar2 {
+    replace `total_flag'=1 if trim(`v')!="" & trim(`v')!="[:]" & missing(real(trim(`v')))
+	gen `v'_bis=`v' 
 	destring `v'_bis, generate(addd_`v') force
 	drop `v'_bis
 	}
@@ -306,6 +315,10 @@ if ("`rowtotal'"!="") {
 	egen Total=rowtotal(`r(varlist)')
 	ds addd_*
 	drop `r(varlist)'
+    tempvar total_text
+    gen str32 `total_text'=cond(`total_flag',"[-]",string(Total,"%21.15g"))
+    drop Total `total_flag'
+    rename `total_text' Total
 }
 
 unab all_vars: *
@@ -313,7 +326,11 @@ local indvar2:list all_vars-varlist
 
 
 
-if ("`rowtotal'"!="") local indvar2:list indvar2-rowtotal
+// rowtotal() is a display label; the calculated column is always Total.
+if ("`rowtotal'"!="") {
+    local total_column Total
+    local indvar2 : list indvar2 - total_column
+}
 
 foreach v of local indvar2 {
 	replace `v'="[:]" if `v'==""
@@ -328,6 +345,10 @@ foreach v of local indvar2 {
 *export excel using  "`path'", sheet("`sheet_name'", modify) cell(`cell_end')
 
 /*** Adding table values in excel ***/
+if "`hidedim'"!="" {
+    capture drop `varlist'
+    local size_varlist=0
+}
 unab vars:*
 local nrows = _N
 local ncols : word count `vars'
@@ -362,7 +383,7 @@ forvalues progress_outer = 1/`outer' {
 			local my_scal = real("`raw'")
 			if !missing(`my_scal') {
 				if "`replace'"!="" _mdt_format `xcell' = `my_scal'
-                else _mdt_format `xcell' = `my_scal', nformat("_* #,##0.00_-") 
+                else _mdt_format `xcell' = `my_scal', nformat("_* `indicator_format'_-")
 				}
 			else {
 				if "`replace'"!="" _mdt_format `xcell' = "`raw'"
@@ -415,7 +436,7 @@ forvalues column=1/`ncols' {
             quietly _excel_cell_shift, cell("`startcell'") rowinc(`=`observation'-2') colinc(`=`column'-1')
             local lastcell "`r(cell)'"
             local style
-            if `previous'==1 local style nformat("_* #,##0.00_-")
+            if `previous'==1 local style nformat("_* `indicator_format'_-")
             if `previous'==2 local style font("Arial",9,"166 166 166")
             _mdt_format (`firstcell':`lastcell'), border(all,thin,"217 217 217") `style' reset
             local firstrow=`observation'
@@ -436,7 +457,7 @@ qui describe
 	local leng_tab=`r(k)'+`col_num_start_cell'-1
 	local EndTabCell="`:word `leng_tab' of `alphabet''`TabCellEnd_num'"
 
-if (`size_header'>0 & "`truncate'"=="") {
+if (`size_varlist'>0 & `size_header'>0 & "`truncate'"=="") {
 		local header_start_cell="`TabTitleCell'"
 
 	forvalues i=1/`size_varlist' {
@@ -471,7 +492,7 @@ if (`size_header'>0 & "`truncate'"=="") {
 		}
 	}
 	
-	if ("`truncate'"=="") _mdt_format (`TabTitleCell':`TabCellEnd'), border(right, thin, black) bold font("Arial",10) reset
+	if ("`truncate'"=="" & "`hidedim'"=="") _mdt_format (`TabTitleCell':`TabCellEnd'), border(right, thin, black) bold font("Arial",10) reset
 
 		*_mdt_format (`TabTitleCell':`EndTabCell'), border(all, thin, blue)  
 	_mdt_format (`TabTitleCell':`TabCellEnd'), border(left, thin, black)  
@@ -482,7 +503,7 @@ if (`size_header'>0 & "`truncate'"=="") {
 	
 	_mdt_format (`TabTitleCell':`EndTabCell'),  hcenter vcenter
 	_mdt_format (`cell_end':`EndTabCell'), font("Arial",9) right
-	if ("`truncate'"=="" & "`has_over'"=="") {
+	if ("`truncate'"=="" & "`has_over'"=="" & "`hidedim'"=="") {
 	_mdt_format (`TabTitleCell':`TabCellEnd'),  left
 	}
 	else {
@@ -528,7 +549,8 @@ if (`size_header'>0 & "`truncate'"=="") {
 	if ("`truncate'"=="") quietly _excel_cell_shift, cell("`TitleCell'") rowinc(0) colinc(`=`leng_tab'-1')
 	else 				  quietly _excel_cell_shift, cell("`TitleCell'") rowinc(0) colinc(`=`leng_tab'-2')
 
-		local tabtitle_left_cell "`r(cell)'"
+		if "`hidedim'"!="" quietly _excel_cell_shift, cell("`TitleCell'") rowinc(0) colinc(`=`leng_tab'-`col_num_start_cell'')
+    local tabtitle_left_cell "`r(cell)'"
 		if("`truncate'"=="") _mdt_format (`TitleCell'),  font("Arial",10,"black") italic reset
 		_mdt_format (`TitleCell':`tabtitle_left_cell'), merge border(left,thin,white)
 		_mdt_format (`TitleCell':`tabtitle_left_cell'),  border(right,thin,white)
@@ -557,7 +579,8 @@ _mdt_format (`TabTitleCell':`TabCellEnd'),  left
 _mdt_format (`TitleCell'),  left font("Arial",10,"blue") italic
 */
 ************ Masked cells footnote
-	local maskedCellNote_cell_num=`TabCellEnd_num'+1
+	if "`hidenote'"=="" {
+    local maskedCellNote_cell_num=`TabCellEnd_num'+1
 	local empy_cell_meta="`cell_start'`maskedCellNote_cell_num'"
 	local maskedCellNote="Percentage of masked cells: `per_masked_cells'%"
 	_mdt_format `empy_cell_meta' = "`maskedCellNote'"
@@ -569,6 +592,7 @@ _mdt_format (`TitleCell'),  left font("Arial",10,"blue") italic
 	local zeroCellNote="Percentage of cells with value zero(0): `per_zero_cells'%"
 	_mdt_format `zero_cell_meta' = "`zeroCellNote'"
 	_mdt_format (`zero_cell_meta'),  left font("Arial",9,"red") italic reset nformat("0")
+    }
 	
 _mdt_format flush
 if ("`onmemory'"=="") quietly _tab_from_mdt_excel, action(save) path(`"`path'"')
@@ -579,7 +603,7 @@ restore
 return scalar tab_start_line=`cell_start_num'
 return local tab_start_cell_letter="`cell_start'"
 return local tab_end_cell_letter="`tab_after_end_cell_letter'"
-return scalar tab_end_line=`TabCellEnd_num'+4
+return scalar tab_end_line=`TabCellEnd_num'+4-2*("`hidenote'"!="")
 end
 	
 

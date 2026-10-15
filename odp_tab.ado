@@ -2,7 +2,13 @@ cap program drop odp_tab
 program define odp_tab, rclass
 
 
-	syntax varlist(default=none) [if], indicator(string asis) [tabtitle(string asis) truncate header(string asis) outfile(string) indicatorname(varlist) indvar(varlist) value(varlist) rowtotal (string) DECimal(string) valid (string) replace ONmemory has_over highlight source(string) LABELdim(string asis) SUBPOPvar(varname)]
+	syntax varlist(default=none) [if], indicator(string asis) [tabtitle(string asis) truncate header(string asis) outfile(string asis) indicatorname(varlist) indvar(varlist) value(varlist) rowtotal (string) DECimal(string) DIGits(integer 2) HIDEdim valid (string) replace ONmemory has_over highlight source(string) LABELdim(string asis) SUBPOPvar(varname) HIDENOTE]
+    if !inrange(`digits',0,15) {
+        di as error "digits() must be an integer between 0 and 15"
+        exit 198
+    }
+    local indicator_format "#,##0"
+    if `digits'>0 local indicator_format = "#,##0." + substr("000000000000000",1,`digits')
 
 					
 /* TODO list
@@ -106,12 +112,11 @@ foreach v of local indicator {
 	
 	
 ***************extract PATH, SHEET NAME and START CELL NUMBER from outfile ********
-    local outfile = trim("`outfile'")  // Strip leading/trailing whitespace
-    tokenize "`outfile'", parse(",")  // Split by comma
-    local path = trim("`1'") // Assign values
-    local sheet_name = trim("`3'") // Assign values
-    local cell_start_num   = trim("`5'") // Assign values
-	local cell_start   = trim("`7'") // Assign values
+quietly _tab_from_mdt_outfile, spec(`"`outfile'"')
+    local path `"`r(path)'"'
+    local sheet_name `"`r(sheet)'"'
+    local cell_start_num = r(row)
+    local cell_start "`r(column)'"
 
 	if ("`sheet_name'"=="") local sheet_name "TABLES"
 	if ("`cell_start_num'"=="") local cell_start_num=1
@@ -279,6 +284,10 @@ local col_num_start_cell:list posof "`cell_start'" in alphabet
 *===============================================================================
 /*======================= Write the data in excel =============================*/
 
+if "`hidedim'"!="" {
+    capture drop `varlist'
+    local size_varlist=0
+}
 unab vars:*
 local nrows = _N
 local ncols : word count `vars'
@@ -428,7 +437,7 @@ forvalues i = 1/`nrows' {
 	
 	gen byte has_flag = 0
 	foreach v of local indvar2 {
-		replace has_flag = 1 if trim(`v') != "" & missing(real(trim(`v')))
+		replace has_flag = 1 if trim(`v') != "" & trim(`v') != "[:]" & missing(real(trim(`v')))
 	}
 	
 	replace Total="[-]" if has_flag==1
@@ -450,6 +459,10 @@ forvalues i = 1/`nrows' {
 
 	*export excel using  "`path'", sheet("`sheet_name'", modify) cell(`cell_end')
 /*** Adding table values in excel ***/
+if "`hidedim'"!="" {
+    capture drop `varlist'
+    local size_varlist=0
+}
 unab vars:*
 local nrows = _N
 local ncols : word count `vars'
@@ -467,7 +480,7 @@ forvalues i = 1/`nrows' {
 			local my_scal = real("`raw'")
 			if !missing(`my_scal') {
 				if "`replace'"!="" _mdt_format `xcell' = `my_scal'
-                else _mdt_format `xcell' = `my_scal', nformat("_* #,##0.00_-") 
+                else _mdt_format `xcell' = `my_scal', nformat("_* `indicator_format'_-")
 				}
 			else {
 				if "`replace'"!="" _mdt_format `xcell' = "`raw'"
@@ -512,7 +525,7 @@ forvalues column=1/`ncols' {
             quietly _excel_cell_shift, cell("`startcell'") rowinc(`=`observation'-2') colinc(`=`column'-1')
             local lastcell "`r(cell)'"
             local style
-            if `previous'==1 local style nformat("_* #,##0.00_-")
+            if `previous'==1 local style nformat("_* `indicator_format'_-")
             if `previous'==2 local style font("Arial",9,"166 166 166")
             _mdt_format (`firstcell':`lastcell'), border(all,thin,"217 217 217") `style' reset
             local firstrow=`observation'
@@ -533,7 +546,7 @@ forvalues column=1/`ncols' {
 	local leng_tab=`r(k)'+`col_num_start_cell'-1
 	local EndTabCell="`:word `leng_tab' of `alphabet''`TabCellEnd_num'"
 
-	if (`size_header'>0 & "`truncate'"=="") {
+	if (`size_varlist'>0 & `size_header'>0 & "`truncate'"=="") {
 		local header_start_cell="`TabTitleCell'"
 
 	forvalues i=1/`size_varlist' {
@@ -570,13 +583,14 @@ forvalues column=1/`ncols' {
 	}
 	
 	
-	if ("`truncate'"=="") _mdt_format (`TabTitleCell':`TabCellEnd'), border(right, thin, black) bold font("Arial",10) reset
+	if ("`truncate'"=="" & "`hidedim'"=="") _mdt_format (`TabTitleCell':`TabCellEnd'), border(right, thin, black) bold font("Arial",10) reset
 	**adding thin line after valide
 	if (`size_valid'>0) {
 		if (`max_diff'==0) {
-			quietly _excel_cell_shift, cell("`TabTitleCell'") rowinc(0) colinc(1)
+			local valid_offset = cond("`hidedim'"=="",1,0)
+            quietly _excel_cell_shift, cell("`TabTitleCell'") rowinc(0) colinc(`valid_offset')
 			local valid_cell_top "`r(cell)'"
-			quietly _excel_cell_shift, cell("`TabCellEnd'") rowinc(0) colinc(1)
+			quietly _excel_cell_shift, cell("`TabCellEnd'") rowinc(0) colinc(`valid_offset')
 			local valid_cell_bottom "`r(cell)'"	
 			if ("`truncate'"=="") _mdt_format (`valid_cell_top':`valid_cell_bottom'), border(right,thin,black)
 			else 				  _mdt_format (`TabTitleCell':`TabCellEnd'), border(right,thin,black)
@@ -597,7 +611,7 @@ forvalues column=1/`ncols' {
 	
 	_mdt_format (`TabTitleCell':`EndTabCell'),  hcenter vcenter
 	_mdt_format (`cell_end':`EndTabCell'), font("Arial",9) right
-	if ("`truncate'"=="" & "`has_over'"=="") {
+	if ("`truncate'"=="" & "`has_over'"=="" & "`hidedim'"=="") {
 	_mdt_format (`TabTitleCell':`TabCellEnd'),  left
 	}
 	else {
@@ -650,7 +664,8 @@ forvalues column=1/`ncols' {
 	if ("`truncate'"=="") quietly _excel_cell_shift, cell("`TitleCell'") rowinc(0) colinc(`=`leng_tab'-1')
 	else 				  quietly _excel_cell_shift, cell("`TitleCell'") rowinc(0) colinc(`=`leng_tab'-2')
 
-		local tabtitle_left_cell "`r(cell)'"
+		if "`hidedim'"!="" quietly _excel_cell_shift, cell("`TitleCell'") rowinc(0) colinc(`=`leng_tab'-`col_num_start_cell'')
+    local tabtitle_left_cell "`r(cell)'"
 		if("`truncate'"=="") _mdt_format (`TitleCell'),  font("Arial",10,"black") italic
 		_mdt_format (`TitleCell':`tabtitle_left_cell'), merge border(left,thin,white)
 		_mdt_format (`TitleCell':`tabtitle_left_cell'),  border(right,thin,white)
@@ -672,7 +687,8 @@ forvalues column=1/`ncols' {
 		local TabCellEnd_num=`TabCellEnd_num'+1
 	}
 	************ Masked cells footnote
-	local maskedCellNote_cell_num=`TabCellEnd_num'+1
+	if "`hidenote'"=="" {
+    local maskedCellNote_cell_num=`TabCellEnd_num'+1
 	local empy_cell_meta="`cell_start'`maskedCellNote_cell_num'"
 	local maskedCellNote="Percentage of masked cells: `per_masked_cells'%"
 	_mdt_format `empy_cell_meta' = "`maskedCellNote'"
@@ -684,6 +700,20 @@ forvalues column=1/`ncols' {
 	local zeroCellNote="Percentage of cells with value zero(0): `per_zero_cells'%"
 	_mdt_format `zero_cell_meta' = "`zeroCellNote'"
 	_mdt_format (`zero_cell_meta'),  left font("Arial",9,"red") italic
+    }
+    // Apply the population display last so general numeric/highlight styles
+    // cannot restore decimals. Target only the generated Valid data column.
+    if `size_valid'>0 {
+        if `max_diff'==0 {
+            local valid_column : list posof "`value'1" in vars
+            if `valid_column'>0 & `nrows'>0 {
+                quietly _excel_cell_shift, cell("`startcell'") rowinc(0) colinc(`=`valid_column'-1')
+                local valid_first "`r(cell)'"
+                quietly _excel_cell_shift, cell("`startcell'") rowinc(`=`nrows'-1') colinc(`=`valid_column'-1')
+                _mdt_format (`valid_first':`r(cell)'), nformat("#,##0")
+            }
+        }
+    }
 	restore
 	
 _mdt_format flush
@@ -693,7 +723,7 @@ if ("`onmemory'"=="") quietly _tab_from_mdt_excel, action(save) path(`"`path'"')
 return scalar tab_start_line=`cell_start_num'
 return local tab_start_cell_letter="`cell_start'"
 return local tab_end_cell_letter="`tab_after_end_cell_letter'"
-return scalar tab_end_line=`TabCellEnd_num'+4
+return scalar tab_end_line=`TabCellEnd_num'+4-2*("`hidenote'"!="")
 
 end
 	

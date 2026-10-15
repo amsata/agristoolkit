@@ -3,11 +3,17 @@ capture program drop _tab_from_mdt_over
 program define _tab_from_mdt_over, rclass
 
     version 14.1
-    syntax varlist [if], indicator(string asis) outfile(string) over(varlist min=1 max=3) ///
+    syntax varlist [if], indicator(string asis) outfile(string asis) over(varlist min=1 max=3) ///
         [tabtitle(string) indicatorname(varname) indvar(varname) value(varname) ///
-        rowtotal(string) decimal(string) valid(string) replace ONmemory header(string) ///
-        highlight source(string) LABELdim(string asis) SUBPOPvar(varname) OMITabsentcomb PROGress]
+        rowtotal(string) decimal(string) DIGits(integer 2) HIDEdim valid(string) replace ONmemory header(string) ///
+        highlight source(string) LABELdim(string asis) SUBPOPvar(varname) OMITabsentcomb PROGress HIDENOTE]
 
+    if !inrange(`digits',0,15) {
+        di as error "digits() must be an integer between 0 and 15"
+        exit 198
+    }
+    local indicator_format "#,##0"
+    if `digits'>0 local indicator_format = "#,##0." + substr("000000000000000",1,`digits')
     local nd : word count `varlist'
     local dup : list varlist & over
     if `"`dup'"' != "" {
@@ -136,11 +142,11 @@ program define _tab_from_mdt_over, rclass
             }
         }
     }
-    tokenize `"`outfile'"', parse(",")
-    local path = trim(`"`1'"')
-    local sheet = trim(`"`3'"')
-    local startrow = trim(`"`5'"')
-    local startcol = upper(trim(`"`7'"'))
+quietly _tab_from_mdt_outfile, spec(`"`outfile'"')
+    local path `"`r(path)'"'
+    local sheet `"`r(sheet)'"'
+    local startrow = r(row)
+    local startcol "`r(column)'"
     if `"`sheet'"' == "" local sheet TABLES
     if "`startrow'" == "" local startrow 1
     if "`startcol'" == "" local startcol A
@@ -157,11 +163,12 @@ program define _tab_from_mdt_over, rclass
     forvalues i=1/`=length("`startcol'")' {
         local sc = 26*`sc' + strpos("ABCDEFGHIJKLMNOPQRSTUVWXYZ",substr("`startcol'",`i',1))
     }
+    if "`hidedim'"!="" local nd=0
     local width = `nd' + `combinations'*`block'
     local top = (`"`tabtitle'"'!="") + (`"`header'"'!="")
     local dataoff = `top'+`nover'+1
     local lastrow = `sr'+`dataoff'+`nr'-1
-    local lastnote = `lastrow'+2+(`"`source'"'!="")
+    local lastnote = `lastrow'+2*("`hidenote'"=="")+(`"`source'"'!="")
     if `sc'+`width'+2>16384 | `lastnote'+2>1048576 {
         di as error "table and returned placement coordinates exceed Excel worksheet limits"
         exit 198
@@ -202,8 +209,8 @@ program define _tab_from_mdt_over, rclass
         quietly replace `pop' = `lo'
         drop `lo'
     }
-    quietly generate byte `flagged' = (`text'!="" & missing(real(`text')))
-    quietly generate byte `usable' = !missing(real(`text'))
+    quietly generate byte `flagged' = (`text'!="" & trim(`text')!="[:]" & missing(real(`text')))
+    quietly generate byte `usable' = (!missing(real(`text')) | trim(`text')=="[:]")
     quietly count
     local cells = r(N)
     quietly count if missing(real(`text'))
@@ -245,6 +252,7 @@ program define _tab_from_mdt_over, rclass
     local hlast = `h1'+`nover'
     _mdt_format (`startcol'`h1':`right'`lastrow'), font("Arial",9) border(all,thin,"217 217 217") `resetstyle'
     _mdt_format (`startcol'`h1':`right'`hlast'), bold font("Arial",10) hcenter vcenter txtwrap border(all,thin,black) `resetstyle'
+    if `nd'>0 {
     forvalues d=1/`nd' {
         quietly _excel_cell_shift, cell("`anchor'") rowinc(0) colinc(`=`d'-1')
         local col = regexr("`r(cell)'", "[0-9]+$", "")
@@ -258,6 +266,7 @@ program define _tab_from_mdt_over, rclass
             local rr = `sr'+`dataoff'+`r'-1
             _mdt_format `col'`rr' = `"`row`r'_`d''"'
         }
+    }
     }
     // Native 15/16 reset can leave a different numeric-format ID.
     // Restore General through the preserving path before writing numeric values.
@@ -337,9 +346,11 @@ program define _tab_from_mdt_over, rclass
     _mdt_format (`startcol'`lastrow':`right'`lastrow'), border(bottom,thin,black)
     _mdt_format (`startcol'`h1':`startcol'`lastrow'), border(left,thin,black)
     _mdt_format (`right'`h1':`right'`lastrow'), border(right,thin,black)
+    if `nd'>0 {
     quietly _excel_cell_shift, cell("`anchor'") rowinc(0) colinc(`=`nd'-1')
     local dimension_right = regexr("`r(cell)'", "[0-9]+$", "")
     _mdt_format (`dimension_right'`h1':`dimension_right'`lastrow'), border(right,thin,black)
+    }
     forvalues b=0/`=`combinations'-1' {
         local offset = `nd'+`b'*`block'
         quietly _excel_cell_shift, cell("`anchor'") rowinc(0) colinc(`offset')
@@ -416,7 +427,7 @@ program define _tab_from_mdt_over, rclass
                     local firstcell "`r(cell)'"
                     quietly _excel_cell_shift, cell("`anchor'") rowinc(`=`dataoff'+`rowkey'-2') colinc(`column')
                     local lastcell "`r(cell)'"
-                    local style nformat("#,##0.00") right
+                    local style nformat("`indicator_format'") right
                     if "`previous'"=="population" local style nformat("#,##0") right
                     if "`previous'"=="flag" local style font("Arial",9,"166 166 166") right
                     _mdt_format (`firstcell':`lastcell'), `style'
@@ -436,9 +447,11 @@ program define _tab_from_mdt_over, rclass
         _mdt_format (`startcol'`note':`right'`note'), border(right,thin,white)
         local ++note
     }
+    if "`hidenote'"=="" {
     _mdt_format `startcol'`note' = "Percentage of masked cells: `masked'%", italic font("Arial",9,"red")
     local ++note
     _mdt_format `startcol'`note' = "Percentage of cells with value zero(0): `zeros'%", italic font("Arial",9,"red")
+    }
     _mdt_format flush
     if "`onmemory'"=="" quietly _tab_from_mdt_excel, action(save) path(`"`path'"')
     quietly _excel_cell_shift, cell("`anchor'") rowinc(0) colinc(`=`width'+2')
