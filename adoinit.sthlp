@@ -2,7 +2,7 @@
 {title:adoinit - Initialize a project's ado folder}
 
 {p 8 16 2}{cmd:adoinit, path("parent directory")} [{cmd:name("ado")} {cmd:replace}
-{cmd:agrisfrom("source")} {cmd:parallelfrom("source")} {cmd:sscfrom("source")}]
+{cmd:agrisfrom("source")} {cmd:parallelfrom("source")} {cmd:sscfrom("source")} {cmd:elabelfrom("source")}]
 
 {pstd}Creates one folder under an existing parent and installs agristoolkit,
 tuples, elabel, confirmdir, and parallel into it.
@@ -20,7 +20,12 @@ A failed installation leaves a partial folder for inspection/retry with replace.
 {pstd}agrisfrom() defaults to
 https://raw.githubusercontent.com/amsata/agristoolkit/main/ .
 parallelfrom() defaults to https://raw.github.com/gvegayon/parallel/stable/ .
-sscfrom(), when omitted, uses ssc install. Source options accept local net-package
+sscfrom(), when omitted, uses ssc install with replace for tuples, elabel,
+and confirmdir. When supplied, these three dependencies use net install with
+replace from that source. Parallel always uses net install from parallelfrom();
+sscfrom() does not affect parallel.
+Specify elabelfrom() to override the source for elabel alone; it takes precedence
+over sscfrom() for elabel. When neither source option is specified, elabel uses SSC. Source options accept local net-package
 repositories or URLs and allow archived/pinned sources and offline installation.
 
 {title:Example}
@@ -39,3 +44,7 @@ The current upstream main branch may differ from a local development checkout.
 
 {title:Stored results}
 {pstd}{cmd:r(adopath)} contains the populated ado-folder path.
+
+{title:Use a separate elabel source}
+{phang}{cmd:adoinit, path("$ODP_wd/2.Scripts") name("ado") elabelfrom("https://raw.githubusercontent.com/kleindaniel81/elabel/master/")}
+{pstd}Add {cmd:replace} when updating an existing project ado folder.

@@ -2,6 +2,10 @@
 
 cap program drop genmdt
 program define genmdt
+    if c(stata_version)<13 {
+        di as error "genmdt requires native Stata 13 or later"
+        exit 9
+    }
     // Commit the MDT on success; restore the survey data on validation/error.
     preserve
     capture noisily _genmdt_io `0'
@@ -191,14 +195,10 @@ if(`n_geovars'>0) {
 		exit 480
 	}
 	
-    // Normalize ratios before metadata validation and wildcard-unit expansion.
-    // Keep whitespace between definitions while joining each ID and operand pair.
+    // Resolve ratio spacing before metadata, using the native-version path.
     if `n_ratio'>0 {
-        local ratio=ustrregexra(`"`ratio'"',"\s*:\s*",":")
-        local ratio=ustrregexra(`"`ratio'"',"\s*/\s*","/")
-        local ratio=subinstr(`"`ratio'"',"(","",.)
-        local ratio=subinstr(`"`ratio'"',")","",.)
-        local ratio=strtrim(ustrregexra(`"`ratio'"',"\s+"," "))
+        quietly _agris_normalize_text, text(`"`ratio'"') mode(ratio)
+        local ratio `"`r(text)'"'
         local n_ratio : list sizeof ratio
     }
 
@@ -233,10 +233,7 @@ if(`n_geovars'>0) {
 
     // Validate naming metadata against final estimation IDs after expansion.
     local naming_ids `mean' `total' `median'
-    local naming_ratio=ustrregexra(`"`ratio'"',"\s*:\s*",":")
-    local naming_ratio=ustrregexra(`"`naming_ratio'"',"\s*/\s*","/")
-    local naming_ratio=subinstr(`"`naming_ratio'"',"(","",.)
-    local naming_ratio=subinstr(`"`naming_ratio'"',")","",.)
+    local naming_ratio `"`ratio'"'
     quietly extract_before_colon "`naming_ratio'"
     local ratio_ids `r(extracted)'
     // Ratio operands may reuse inputs; compare the resulting indicator IDs only.
@@ -435,11 +432,7 @@ local median_bis
 	
 	if `n_ratio'>0 {
 	
-	local ratio = ustrregexra("`ratio'", "\s*:\s*", ":")
-	local ratio = ustrregexra("`ratio'", "\s*/\s*", "/")
-	local ratio : subinstr local ratio "(" "", all
-	local ratio : subinstr local ratio ")" "", all
-	
+    // ratio() was already normalized before metadata expansion.
 		quietly consistencyCheck `varlist' , marginlabels(`marginlabels') param("ratio") hiergeovars(`hiergeovars') ///
 		var(`ratio') conditionals(`conditionals') setcluster(`setcluster') 
 	}

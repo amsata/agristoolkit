@@ -1,6 +1,6 @@
 program define _agris_parallel_queue
-    version 14
-    syntax, [DIMensions(string) GEOgraphy(string) MEAN(string asis) MEDIAN(string asis) TOTAL(string asis) RATIO(string asis) SUBpop(string)]
+    version 13
+    syntax, [DIMensions(string) GEOgraphy(string) MEAN(string asis) MEDIAN(string asis) TOTAL(string asis) RATIO(string asis) SUBpop(string) CHECKonly]
     tempfile tasks job_anchor
     tempname taskpost
     postfile `taskpost' long taskid str244 tuple str244 indicator str32 geo str3 alldim str6 statistic using "`tasks'", replace
@@ -25,6 +25,12 @@ program define _agris_parallel_queue
                     forvalues j=1/`ntuples' {
                         local tuple `tuple`j''
                         local ad = cond(`nd'==0, "yes", "no")
+                        // Fail in the parent with actionable guidance before launching workers.
+                        if c(stata_version)<16 & "`ad'"!="yes" {
+                            local guard_subpop `"`subpop'"'
+                            if "`geo'"!="" local guard_subpop
+                            _agris_svy_compat `tuple', parameter(`parameter') variable(`ind') subpop(`guard_subpop')
+                        }
                         local ++taskid
                         post `taskpost' (`taskid') ("`tuple'") ("`ind'") ("`geo'") ("`ad'") ("`parameter'")
                     }
@@ -40,6 +46,7 @@ program define _agris_parallel_queue
         }
     }
     postclose `taskpost'
+    if "`checkonly'"!="" exit
     if `taskid'==0 error 2000
     local original_children = $PLL_CHILDREN
     local original_clusters = $PLL_CLUSTERS

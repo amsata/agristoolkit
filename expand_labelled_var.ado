@@ -87,7 +87,8 @@ program define expand_labelled_var, rclass
     if `k' {
         forvalues i=1/`k' {
             quietly generate byte `target`i''=(`source`i''==`code`i'') if !missing(`source`i'')
-            local short_label=usubstr(`"`label`i''"',1,80)
+            if c(stata_version)>=14 local short_label=usubstr(`"`label`i''"',1,80)
+            else local short_label=substr(`"`label`i''"',1,80)
             label variable `target`i'' `"`short_label'"'
             return local variable`i' `target`i''
             return local source`i' `source`i''

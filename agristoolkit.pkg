@@ -17,12 +17,14 @@ F add_name.sthlp
 F _genmdt_name_parse.ado
 F consistencyCheck.ado
 F erase_after_hash.ado
+F _agris_normalize_text.ado
 F expand_varlist.ado
 F expand_labelled_var.ado
 F expand_labelled_var.sthlp
 F extract_before_colon.ado
 F extract_macro_elements.ado
 F _agris_parallel_collect.ado
+F _agris_parallel_dir.ado
 F _agris_parallel_stats.ado
 F _agris_parallel_queue.ado
 F _agris_parallel_worker.ado
@@ -38,6 +40,7 @@ F odp_tab3.ado
 F putexcel_describe.ado
 F setup_anonymization.ado
 F setup_anonymization.sthlp
+F _agris_svy_compat.ado
 F svyEstimate.ado
 F svyParallel.ado
 F svyParallelGeo.ado

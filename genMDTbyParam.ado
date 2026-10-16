@@ -8,9 +8,8 @@ program define genMDTbyParam
     }
     local original_dir `"`c(pwd)'"'
     local original_temp : copy global temp_file
-    tempfile run_anchor
-    local run_dir `"`run_anchor'_agris"'
-    mkdir `"`run_dir'"'
+    _agris_parallel_dir, suffix(agris)
+    local run_dir `"`r(path)'"' 
     nobreak {
         quietly cd `"`run_dir'"'
         capture noisily break _agris_param_impl `invocation'

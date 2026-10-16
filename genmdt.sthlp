@@ -291,3 +291,41 @@ are accepted. For example, {cmd:ratio(IRRI_PCT : irrigated_area / total_area)}
 works with {cmd:units("*_PCT@%")}. Whitespace is normalized before indicator
 metadata and wildcard units are processed; separate ratio definitions remain
 separate. Parenthesized ratio definitions are also accepted.
+
+{title:Survey compatibility in older Stata releases}
+{pstd}
+Before survey mean, total or ratio estimation in native Stata below 16,
+{cmd:genmdt} checks for stage weights combined with more than 100 observed
+{cmd:over()} groups in the survey setup/subpopulation sample. This combination
+fails inside older Stata survey code. The command stops with error 459,
+identifies the indicator and dimensions, and leaves the survey design unchanged.
+The check applies to serial and parallel estimation. Median and overall
+estimates without {cmd:over()} are unaffected.
+{pstd}
+If the supplied weight is the final observation sampling weight, declare it as
+{cmd:svyset PSU [pweight=weight], strata(stratum)}. Genuine stage weights must
+retain their design interpretation; use a supported newer Stata release or
+reduce the number of groups. Native Stata 14.0 and 15.1 were tested; native
+Stata 16 follows its existing estimation path. Stata 13 has not been tested.
+
+{pstd}
+Failed parallel runs retain their diagnostic working directory. A subsequent
+run creates a fresh directory, adding a numeric suffix if a temporary name is
+already occupied. Existing diagnostics are preserved; retrying does not require
+manually deleting them. Genuine directory-creation errors are still reported.
+
+{title:Stata 13 string-function compatibility}
+{pstd}
+The command checks for a minimum native Stata version of 13. On Stata 14 and
+later, range/ratio spacing and generated category labels retain Unicode-aware
+processing. On Stata 13, whitespace normalization uses ordinary string functions
+and label shortening uses byte-based substr(). Spaces, tabs and ASCII line-break
+characters around :, / and - are accepted; separate definitions stay separate.
+Stata 13 retains its native encoding limitations.
+{pstd}
+The older-function branches were forced and tested on native Stata 14.0, 15.1
+and 16, including serial and parallel comparisons. Native Stata 13 was not
+available for testing; these checks do not certify its internal survey routines
+or third-party binary dependencies. The separate forced-old-caller/native-16
+survey extraction issue is unchanged. Use the native execution mode on newer
+releases until that issue is resolved.

@@ -1,5 +1,5 @@
 program define _agris_parallel_worker
-    version 14
+    version 13
     syntax, TASKS(string) SOURCE(string) [SUBpop(string)]
     quietly use "`tasks'", clear
     quietly keep if worker == $pll_instance

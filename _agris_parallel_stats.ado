@@ -1,11 +1,14 @@
 program define _agris_parallel_stats
-    version 14
+    version 13
     local invocation `"`0'"'
+    if c(stata_version)<16 {
+        quietly svyset
+        if !missing(r(stages_wt)) & r(stages_wt)>0 _agris_parallel_stats_preflight `invocation'
+    }
     local original_dir `"`c(pwd)'"'
     local original_temp : copy global temp_file
-    tempfile run_anchor
-    local run_dir `"`run_anchor'_allstats"'
-    mkdir `"`run_dir'"'
+    _agris_parallel_dir, suffix(allstats)
+    local run_dir `"`r(path)'"' 
     nobreak {
         quietly cd `"`run_dir'"'
         capture noisily break _agris_parallel_stats_impl `invocation'
@@ -42,4 +45,11 @@ program define _agris_parallel_stats_impl
     }
     quietly use "`accumulated'", clear
     restore, not
+end
+
+program define _agris_parallel_stats_preflight
+    syntax [varlist(default=none)], [MEAN(string asis) MEDIAN(string asis) TOTAL(string asis) RATIO(string asis) ///
+        MARGINlabels(string asis) HIERGEOvars(string asis) GEOMARGINlabel(string) CONDitionals(string asis) SUBpop(string asis)]
+    _agris_parallel_queue, dimensions("`varlist'") geography("`hiergeovars'") ///
+        mean(`mean') median(`median') total(`total') ratio(`ratio') subpop(`"`subpop'"') checkonly
 end

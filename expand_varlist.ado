@@ -3,7 +3,8 @@ program define expand_varlist, rclass
     args varlist
 
 	*remove extra space before and/or after "-", if any
-	local varlist = ustrregexra("`varlist'", "\s*-\s*", "-")
+    quietly _agris_normalize_text, text(`"`varlist'"') mode(range)
+    local varlist `"`r(text)'"' 
 
     local expanded_list ""	
 

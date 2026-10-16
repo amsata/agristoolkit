@@ -85,6 +85,9 @@ program define svyEstimate
 		}
 		
 		else {
+            if c(stata_version)<16 & "`alldim'"!="yes" {
+                _agris_svy_compat `varlist', parameter(`parameter') variable(`variable') subpop(`subpop_clean')
+            }
 			if("`alldim'"=="yes") svy, subpop(`subpop_clean'): `parameter' `variable'
 			else svy,  subpop(`subpop_clean') over(`varlist'): `parameter' `variable'
 			
